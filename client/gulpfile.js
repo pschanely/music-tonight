@@ -10,8 +10,9 @@ for(var fileName in configFiles) {
 }
 
 var config_patterns = [
-  { pattern: /GOOGLE_ANALYTICS_ID/g, replacement: config.GOOGLE_ANALYTICS_ID },
-  { pattern: /MUSIC_TONIGHT_SERVER/g, replacement: config.MUSIC_TONIGHT_SERVER }
+    { pattern: /GOOGLE_ANALYTICS_ID/g, replacement: config.GOOGLE_ANALYTICS_ID },
+    { pattern: /MUSIC_TONIGHT_SERVER/g, replacement: config.MUSIC_TONIGHT_SERVER },
+    { pattern: /SPOTIFY_CLIENT_ID/g, replacement: config.SPOTIFY_CLIENT_ID }
 ];
 
 gulp.task('default', function() {

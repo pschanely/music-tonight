@@ -5,6 +5,7 @@
 	<meta charset="UTF-8">
 	<link rel="shortcut icon" href="/favicon.png" type="image/png" />
 	<link rel="icon" href="/favicon.png" type="image/png" />
+	<link rel="stylesheet" type="text/css" href="bower_components/animate.css/animate.min.css" />
 	<script>
 	 (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
 	     (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
@@ -15,7 +16,8 @@
 	</script>
 	
 	<script src="bower_components/angularjs/angular.min.js"></script>
-
+        <script src="bower_components/angular-animate/angular-animate.min.js"></script>
+	
 	<style>
 	 /* CSS reset */
 	 body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,form,fieldset,input,textarea,p,blockquote,th,td { 
@@ -62,6 +64,20 @@
 	     overflow-x: hidden;
 	     display: inline-block;
 	 }
+	 a.ng-hide-remove, button.ng-hide-remove {
+	   -webkit-animation: bounceInRight 1s;
+	   -moz-animation: bounceInRight 1s;
+	   -o-animation: bounceInRight 1s;
+	   animation: bounceInRight 1s;
+	 }
+	 li.ng-enter, li.ng-move {
+	   -webkit-animation: fadeIn 1s;
+	   -moz-animation: fadeIn 1s;
+	   -o-animation: fadeIn 1s;
+	   animation: fadeIn 1s;
+	 }
+	 
+
 	 a.outlined:hover, button.outlined:hover {
 	     background: #fff;
 	     text-decoration: none;
@@ -190,7 +206,7 @@
 	     }
 	   }
 	     
-	   var module = angular.module('musictonight', []);
+	   var module = angular.module('musictonight', ['ngAnimate']);
 	   
 	   module.config(['$compileProvider', function($compileProvider) {
 	     $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|ftp|mailto|spotify):/);
@@ -387,8 +403,8 @@
 			<div ng-show="is_loading">
 			    Creating Playlist...
 			</div>
-			<div ng-hide="is_loading" style="text-align:left">
-			    <a ng-href="{{playlist_http}}" style="display:inline-block; margin-left:auto; margin-right:auto" class="outlined" ng-click="$event.preventDefault(); open_playlist()">Open Playlist In Spotify</a>
+			<div style="text-align:left">
+			    <a ng-hide="is_loading" ng-href="{{playlist_http}}" style="display:inline-block; margin-left:auto; margin-right:auto" class="outlined" ng-click="$event.preventDefault(); open_playlist()">Open Playlist In Spotify</a>
 			</div>
 		    </div>
 		</div>

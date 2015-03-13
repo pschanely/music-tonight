@@ -93,6 +93,7 @@ function mysqlStore(pool, table) {
 }
 
 function http(options) {
+    options.encoding = 'utf8';
     var deferred = Q.defer();
     request(options, function(err, httpResponse, body) {
 	if (err) {
