@@ -1,5 +1,6 @@
 /*
-TODO: uniquify on track (multiple incarnations of same artist)
+TODO:
+uniquify on track (multiple incarnations of same artist)
 */
 
 var fs = require('fs');
@@ -106,20 +107,16 @@ function http(options) {
 }
 
 function formatDate(dt) {
-    var yyyy = dt.getFullYear().toString();
-    var mm = (dt.getMonth()+1).toString(); // getMonth() is zero-based
-    var dd  = dt.getDate().toString();
-    return yyyy + '-' + (mm[1]?mm:"0"+mm[0]) + '-' + (dd[1]?dd:"0"+dd[0]); // padding
+    return dt.toISOString().substring(0, 19);
 }
 
 function fetchEvents(zipcode, clientIp, latlon, range) {
     var dt = new Date();
-    var startdt = formatDate(dt);
-    dt.setDate(dt.getDate() + 1);
-    var enddt = formatDate(dt);
+    var startdt = formatDate(new Date(dt.getTime() - 4 * 3600 * 1000));
+    var enddt = formatDate(new Date(dt.getTime() + 18 * 3600 * 1000));
 
-    console.log('input', zipcode, clientIp, latlon);
-    var uri = config.SEATGEEK_EVENTS_PREFIX + '&taxonomies.name=concert&sort=score.desc&per_page=50&range='+range+'mi&datetime_local.gt='+startdt+'&datetime_local.lt='+enddt;
+    console.log('input', zipcode, clientIp, latlon, startdt, enddt);
+    var uri = config.SEATGEEK_EVENTS_PREFIX + '&taxonomies.name=concert&sort=score.desc&per_page=50&range='+range+'mi&datetime_utc.gte='+startdt+'&datetime_utc.lt='+enddt;
     if (latlon) {
 	var parts = latlon.split(',');
 	uri += '&lat=' + parts[0] + '&lon=' + parts[1];
