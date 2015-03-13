@@ -1,0 +1,13 @@
+{
+    "MYSQL": {
+	"host": "REPLACEME",
+	"user": "REPLACEME",
+	"password": "REPLACEME",
+	"database": "REPLACEME",
+	"connectionLimit": 400,
+	"waitForConnections": false
+    },
+    "SEATGEEK_EVENTS_PREFIX": "http://api.seatgeek.com/2/events?",
+    "SPOTIFY_ARTIST_SEARCH_PREFIX": "https://api.spotify.com/v1/search?type=artist&",
+    "SPOTIFY_ARTIST_PREFIX": "https://api.spotify.com/v1/artists/"
+}
