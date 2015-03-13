@@ -28,7 +28,7 @@
 	     margin:0;
 	     padding:0;
 	     background: #eee url(bkgr.svg) no-repeat top left;
-	     background-size: contain;
+	     background-size: 100%;
 	     font-size: 100%;
 	     font-family: Arial, Helvetica, sans-serif;
 	 }
@@ -37,7 +37,6 @@
 	     background: #fff !important;
 	 }
 	 .outlined {
-	     background: #eee;
 	     color: #000000;
 	     border: solid #000000 5px;
 	     text-decoration: none;
@@ -77,21 +76,21 @@
 	   animation: fadeIn 1s;
 	 }
 	 
-
-	 a.outlined:hover, button.outlined:hover {
-	     background: #fff;
-	     text-decoration: none;
+	 a:hover, button:hover {
+	   transition: background-color 0.4s ease;
+	   text-decoration: none;
+	   background-color: #fff;
 	 }
 	 ul {
 	     list-style-type: none;
 	     margin: 0em 1em 0em 1em;
 	 }
 	 li {
-	     border-top: 1px solid #ccc;
-	     padding: 5px;
+	   border-top: 1px solid #ddd;
+	   padding: 0px;
 	 }
 	 li:last-child {
-	     border-bottom: 1px solid #ccc;
+	     border-bottom: 1px solid #ddd;
 	 }
 	 @media (min-width: 701px) {
 	     #allcontent {
@@ -391,12 +390,12 @@
 		<div style="font-size:80px; padding-top:10px; font-family: Georgia, serif;">{{(just_authed()) ? ((is_loading) ? '...' : '&#9825;') : 'hi'}}</div>
 		<div id="discussion" style="padding: 1em">
 		    <div ng-hide="just_authed()" style="text-align:center">
-			<div>
+			<div style="font-size: 115%">
 			    I make spotify playlists of artists playing near you, tonight.
 			</div>
 			&nbsp;
 			<div>
-			    <button ng-show="track_data && !is_loading" class="outlined" ng-click="make_playlist()">Make Playlist</button>
+			    <a ng-show="track_data && !is_loading" href="#" style="display:inline-block; margin-left:auto; margin-right:auto" class="outlined" ng-click="$event.preventDefault(); make_playlist()">Make Playlist</a>
 			</div>
 		    </div>
 		    <div ng-show="just_authed()">
@@ -435,8 +434,10 @@
 		</div>
 		<ul ng-show="track_data">
 		    <li ng-repeat="track in track_data">
+		      <a href style="display:block; padding:0.3em 1em" ng-click="buy_tickets(track.event)">
 			{{track.name}}<br/>
-		      <a href ng-click="buy_tickets(track.event)">{{track.artist}} @ {{track.event.venue.name}}</a>
+			{{track.artist}} @ {{track.event.venue.name}}
+		      </a>
 		    </li>
 		</ul>
 	    </div>
