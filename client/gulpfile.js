@@ -2,6 +2,9 @@ var gulp = require('gulp');
 var requireDir = require('require-dir');
 var configFiles = requireDir('./config');
 var frep = require('gulp-frep');
+var imagemin = require('gulp-imagemin');
+var mainBowerFiles = require('main-bower-files');
+var print = require('gulp-print');
 
 var config = {}
 for(var fileName in configFiles) {
@@ -16,7 +19,17 @@ var config_patterns = [
 ];
 
 gulp.task('default', function() {
+
     gulp.src('./src/index.html')
 	.pipe(frep(config_patterns))
-	.pipe(gulp.dest('./'))    
+	.pipe(gulp.dest('./dist'));
+
+    gulp.src(mainBowerFiles({paths:'./src', debugging:true}), { base:'./src/bower_components'})
+	.pipe(print())
+	.pipe(gulp.dest('./dist/bower_components'));
+
+    gulp.src('./src/img/*')
+        .pipe(imagemin())
+        .pipe(gulp.dest('./dist/img'));
+
 });
