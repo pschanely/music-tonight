@@ -25,7 +25,6 @@ gulp.task('default', function() {
 	.pipe(gulp.dest('./dist'));
 
     gulp.src(mainBowerFiles({paths:'./src', debugging:true}), { base:'./src/bower_components'})
-	.pipe(print())
 	.pipe(gulp.dest('./dist/bower_components'));
 
     gulp.src('./src/img/*')
