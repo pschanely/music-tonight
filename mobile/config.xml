@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <widget id="com.millstonecw.musictonight" version="1.0.2" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+
+  <!--
+      These plugins are required:
+      cordova plugin add org.apache.cordova.geolocation
+      cordova plugin add org.apache.cordova.inappbrowser
+      cordova plugin add https://github.com/ohh2ahh/AppAvailability.git
+  -->
+
   <name>Music Tonight</name>
   <description>
-        A sample Apache Cordova application that responds to the deviceready event.
-    </description>
-  <author email="dev@cordova.apache.org" href="http://cordova.io">
-        Apache Cordova Team
-    </author>
+    Music Tonight, the mobile app.
+  </description>
+  <author email="musictonight@millstonecw.com" href="http://musictonight.millstonecw.com">
+    Phil Schanely
+  </author>
   <content src="index.html?mobileapp=1"/>
   <icon src="resources/android/icon/drawable-xhdpi-icon.png"/>
   <access origin="*"/>
-  <!--
-      google
-      other seatgeek things
-  <access origin="https://api.spotify.com"/>
-  <access origin="http://seatgeek.com"/>
-  <access origin="https://seatgeek.com"/>
-  <access origin="http://musictonight.millstonecw.com"/>
-  -->
   <access origin="spotify:*" launch-external="yes"/>
   <access origin="seatgeek:*" launch-external="yes"/>
   <preference name="auto-hide-splash-screen" value="true"/>
