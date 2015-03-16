@@ -159,6 +159,11 @@
 		  </div>
 		  &nbsp;
 		  <div>
+		    <input ng-model="opts.maxmiles" type="range" min="5" max="200" step="10" />
+		    up to {{opts.maxmiles}} {{(lang=='en-US') ? 'miles' : 'km'}} away
+		  </div>
+		  &nbsp;
+		  <div>
 		    <a href="#" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); showOptions = false; save_options(); get_music()">
 		      done
 		      <svg xmlns="http://www.w3.org/2000/svg" version="1.1"  width="16" height="16" viewBox="0 0 128 128">
@@ -411,7 +416,13 @@
 	       mtSpotify.parseUrl(window.location.hash);
 	       $scope.is_app = is_app;
 	       $scope.just_authed = function() { return mtSpotify.isAuthed(); }
-	       $scope.opts = (localStorage.getItem('opts')) ? JSON.parse(localStorage.getItem('opts')) : {daysout:1, loctext:''};
+	       $scope.opts = (localStorage.getItem('opts')) ? JSON.parse(localStorage.getItem('opts')) : {};
+	       var defaults = {daysout:1, maxmiles:125, loctext:''};
+	       for (var k in defaults) {
+		 if ($scope.opts[k] === undefined) {
+		   $scope.opts[k] = defaults[k];
+		 }
+	       }
 
 	       var citySearchInput = document.getElementById('citySearchInput');
 	       citySearchInput.value = $scope.opts.loctext;
@@ -440,6 +451,11 @@
 		 ga('send', 'event', 'loading_playlist');
 		 var uri = get_playlist_uri;
 		 uri += '?daysout=' + $scope.opts.daysout;
+		 var maxmiles = $scope.opts.maxmiles;
+		 if ($scope.lang != 'en-US') {
+		   maxmiles = Math.round(maxmiles * 0.621371);
+		 }
+		 uri += '&maxmiles=' + maxmiles;
 		 if ($scope.opts.latlon) {
 		   uri += '&latlon=' + $scope.opts.latlon;
 		 } else if (coords) {

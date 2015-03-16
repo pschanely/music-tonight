@@ -114,6 +114,7 @@ function fetchEvents(opts, range) {
     var zipcode = opts.zipcode;
     var latlon = opts.latlon;
     var daysout = opts.daysout;
+    var maxmiles = opts.maxmiles;
     var dt = new Date();
     var startdt = formatDate(new Date(dt.getTime() - 4 * 3600 * 1000));
     var enddt = formatDate(new Date(dt.getTime() + (daysout * 24 - 6) * 3600 * 1000));
@@ -127,11 +128,14 @@ function fetchEvents(opts, range) {
 	var geoip = (zipcode !== undefined && zipcode !== '00000') ? zipcode : opts.clientIp;
 	uri += '&geoip=' + geoip;
     }
+    if (range > maxmiles) {
+	range = maxmiles;
+    }
     return http({method:'get', uri:uri, json:true}).then(function(response) {
 	var num_events = response.events.length;
-	console.log('results at range ', range, ' : ', num_events);
-	var target_count = 20;
-	if (range > 180 || num_events >= target_count) {
+	var target_count = Math.min(50, Math.max(4, Math.round(600 / range)));
+	console.log('results at range ', range, ' : ', num_events, ' (target is:', target_count, ')');
+	if (range == maxmiles || num_events >= target_count) {
 	    var performer_map = {};
 	    response.events.forEach(function(event) {
 		event.timestring = '';
@@ -147,7 +151,7 @@ function fetchEvents(opts, range) {
 	    var multiplier = Math.sqrt((target_count + 1) / (num_events + 1));
 	    if (multiplier < 1.1) { multiplier = 1.1; }
 	    if (multiplier > 2.0) { multiplier = 2.0; }
-	    return fetchEvents(opts, Math.ceil(range * multiplier));
+	    return fetchEvents(opts, 1 + Math.ceil(range * multiplier));
 	}
     });
 }
@@ -203,7 +207,7 @@ function spotifyArtist(performer) {
 }
 
 function getMusic(eventOptions, artistStore) {
-    return fetchEvents(eventOptions, 3).then(function(performer_map) {
+    return fetchEvents(eventOptions, 2).then(function(performer_map) {
 	var playlistName = formatDate(new Date()).substring(0, 10) + '-music-tonight';
 	var performers = Object.keys(performer_map);
 	var promises = performers.map(function(performer) {
@@ -279,14 +283,26 @@ function makeServer(artistStore) {
 	    req.connection.remoteAddress || 
 	    req.socket.remoteAddress ||
 	    req.connection.socket.remoteAddress;
-	var daysout = (req.params.daysout) ? req.params.daysout : 1;
+
+	var language = 'en-US';
+	var acceptLanguages = req.headers['accept-language'];
+	if (acceptLanguages) {
+	    language = acceptLanguages.split(/[\,\;]/)[0];
+	}
+
+	var daysout = (req.params.daysout) ? parseInt(req.params.daysout) : 1;
+	var maxmiles = (req.params.maxmiles) ? parseInt(req.params.maxmiles) : 125;
 	var eventOptions = {
 	    zipcode: req.params.zip_code,
 	    clientIp: clientIp,
 	    latlon: req.params.latlon,
-	    daysout: daysout
+	    daysout: daysout,
+	    maxmiles: maxmiles
 	};
-	return getMusic(eventOptions, artistStore);
+	return getMusic(eventOptions, artistStore).then(function(result) {
+	    result.language = language;
+	    return result;
+	});
     }));
 
     return server;
