@@ -3,7 +3,7 @@
     <head>
 	<title>MusicTonight</title>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, height=device-height,  initial-scale=1.0, user-scalable=no;user-scalable=0;"/>
+	<meta name="viewport" content="width=device-width, height=device-height,  initial-scale=1.0, user-scalable=no"/>
 	<link rel="shortcut icon" href="img/favicon.png" type="image/png" />
 	<link rel="icon" href="img/favicon.png" type="image/png" />
 	<link rel="stylesheet" type="text/css" href="bower_components/animate.css/animate.css" />
@@ -48,7 +48,7 @@
 	   text-decoration: none;
 	 }
 	 .big {
-	   font-size: 150%;
+	   font-size: 140%;
 	 }
 	 input.outlined {
 	   padding: 0.3em 0.6em 0.3em 0.6em;
@@ -57,10 +57,10 @@
 	   border-radius: 0.2em;
 	 }
 	 button.outlined, a.outlined {
-	   padding: 0.3em 0.6em 0.3em 0.6em;
-	   -webkit-border-radius: 1.5em;
-	   -moz-border-radius: 1.5em;
-	   border-radius: 1.5em;
+	   padding: 0.2em 0.4em 0.2em 0.4em;
+	   -webkit-border-radius: 1em;
+	   -moz-border-radius: 1em;
+	   border-radius: 1em;
 	   text-decoration: none;
 	   opacity: 1;
 	   overflow-x: hidden;
@@ -412,7 +412,6 @@
 	       $scope.is_app = is_app;
 	       $scope.just_authed = function() { return mtSpotify.isAuthed(); }
 	       $scope.opts = (localStorage.getItem('opts')) ? JSON.parse(localStorage.getItem('opts')) : {daysout:1, loctext:''};
-	       console.log(' : ', $scope.opts);
 
 	       var citySearchInput = document.getElementById('citySearchInput');
 	       citySearchInput.value = $scope.opts.loctext;
