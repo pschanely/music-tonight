@@ -78,6 +78,11 @@
 	   -o-animation: fadeIn 1s;
 	   animation: fadeIn 1s;
 	 }
+	 .optionlabel {
+	   display: inline-block;
+	   width: 10em;
+	   text-align: left;
+	 }
 	 #options.ng-hide-remove {
 	   -webkit-animation: bounceInRight 1s;
 	   -moz-animation: bounceInRight 1s;
@@ -155,12 +160,12 @@
 		  &nbsp;
 		  <div>
 		    <input ng-model="opts.daysout" type="range" min="1" max="7" step="1" />
-		    up to {{opts.daysout}} day{{(opts.daysout>1)?'s':''}} from now
+		    <span class="optionlabel">up to {{opts.daysout}} day{{(opts.daysout>1)?'s':''}} from now</span>
 		  </div>
 		  &nbsp;
 		  <div>
 		    <input ng-model="opts.maxmiles" type="range" min="5" max="200" step="10" />
-		    up to {{opts.maxmiles}} {{(lang=='en-US') ? 'miles' : 'km'}} away
+		    <span class="optionlabel">up to {{opts.maxmiles}} {{(lang=='en-US') ? 'miles' : 'km'}} away</span>
 		  </div>
 		  &nbsp;
 		  <div>
@@ -433,13 +438,13 @@
 	       $scope.place_to_scope = function() {
 		 var place = cityAutocomplete.getPlace();
 		 var loctext = citySearchInput.value;
-		 if (loctext && place) {
+		 if (! loctext) {
+		   $scope.opts.latlon = null;
+		   $scope.opts.loctext = '';
+		 } else if (place) {
 		   var loc = place.geometry.location;
 		   $scope.opts.latlon = loc.k + ',' + loc.D;
 		   $scope.opts.loctext = loctext;
-		 } else {
-		   $scope.opts.latlon = null;
-		   $scope.opts.loctext = '';
 		 }
 	       };
 
