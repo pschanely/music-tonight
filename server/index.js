@@ -110,25 +110,28 @@ function formatDate(dt) {
     return dt.toISOString().substring(0, 19);
 }
 
-function fetchEvents(zipcode, clientIp, latlon, range) {
+function fetchEvents(opts, range) {
+    var zipcode = opts.zipcode;
+    var latlon = opts.latlon;
+    var daysout = opts.daysout;
     var dt = new Date();
     var startdt = formatDate(new Date(dt.getTime() - 4 * 3600 * 1000));
-    var enddt = formatDate(new Date(dt.getTime() + 18 * 3600 * 1000));
+    var enddt = formatDate(new Date(dt.getTime() + (daysout * 24 - 6) * 3600 * 1000));
 
-    console.log('input', zipcode, clientIp, latlon, startdt, enddt);
+    console.log('input', zipcode, opts.clientIp, latlon, startdt, enddt);
     var uri = config.SEATGEEK_EVENTS_PREFIX + '&taxonomies.name=concert&sort=score.desc&per_page=50&range='+range+'mi&datetime_utc.gte='+startdt+'&datetime_utc.lt='+enddt;
     if (latlon) {
 	var parts = latlon.split(',');
 	uri += '&lat=' + parts[0] + '&lon=' + parts[1];
     } else {
-	var geoip = (zipcode !== undefined && zipcode !== '00000') ? zipcode : clientIp;
+	var geoip = (zipcode !== undefined && zipcode !== '00000') ? zipcode : opts.clientIp;
 	uri += '&geoip=' + geoip;
     }
     return http({method:'get', uri:uri, json:true}).then(function(response) {
 	var num_events = response.events.length;
 	console.log('results at range ', range, ' : ', num_events);
-	var target_count = 30;
-	if (range > 120 || num_events >= target_count) {
+	var target_count = 20;
+	if (range > 180 || num_events >= target_count) {
 	    var performer_map = {};
 	    response.events.forEach(function(event) {
 		event.timestring = '';
@@ -144,7 +147,7 @@ function fetchEvents(zipcode, clientIp, latlon, range) {
 	    var multiplier = Math.sqrt((target_count + 1) / (num_events + 1));
 	    if (multiplier < 1.1) { multiplier = 1.1; }
 	    if (multiplier > 2.0) { multiplier = 2.0; }
-	    return fetchEvents(zipcode, clientIp, latlon, Math.ceil(range * multiplier));
+	    return fetchEvents(opts, Math.ceil(range * multiplier));
 	}
     });
 }
@@ -199,9 +202,9 @@ function spotifyArtist(performer) {
     );
 }
 
-function getMusic(zipcode, clientIP, latlon, artistStore) {
-    return fetchEvents(zipcode, clientIP, latlon, 3).then(function(performer_map) {
-	var playlistName = formatDate(new Date()) + '-music-tonight';
+function getMusic(eventOptions, artistStore) {
+    return fetchEvents(eventOptions, 3).then(function(performer_map) {
+	var playlistName = formatDate(new Date()).substring(0, 10) + '-music-tonight';
 	var performers = Object.keys(performer_map);
 	var promises = performers.map(function(performer) {
 	    return artistStore.get(performer).then(function(data) {
@@ -276,7 +279,14 @@ function makeServer(artistStore) {
 	    req.connection.remoteAddress || 
 	    req.socket.remoteAddress ||
 	    req.connection.socket.remoteAddress;
-	return getMusic(req.params.zip_code, clientIp, req.params.latlon, artistStore);
+	var daysout = (req.params.daysout) ? req.params.daysout : 1;
+	var eventOptions = {
+	    zipcode: req.params.zip_code,
+	    clientIp: clientIp,
+	    latlon: req.params.latlon,
+	    daysout: daysout
+	};
+	return getMusic(eventOptions, artistStore);
     }));
 
     return server;

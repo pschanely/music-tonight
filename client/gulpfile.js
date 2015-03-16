@@ -14,13 +14,14 @@ for(var fileName in configFiles) {
 
 var config_patterns = [
     { pattern: /GOOGLE_ANALYTICS_ID/g, replacement: config.GOOGLE_ANALYTICS_ID },
-    { pattern: /MUSIC_TONIGHT_SERVER/g, replacement: config.MUSIC_TONIGHT_SERVER },
-    { pattern: /SPOTIFY_CLIENT_ID/g, replacement: config.SPOTIFY_CLIENT_ID }
+    { pattern: /APP_SERVER_URL/g, replacement: config.APP_SERVER_URL },
+    { pattern: /SPOTIFY_CLIENT_ID/g, replacement: config.SPOTIFY_CLIENT_ID },
+    { pattern: /GOOGLE_API_KEY/g, replacement: config.GOOGLE_API_KEY }
 ];
 
 gulp.task('default', function() {
 
-    gulp.src('./src/index.html')
+    gulp.src('./src/*.html')
 	.pipe(frep(config_patterns))
 	.pipe(gulp.dest('./dist'));
 
@@ -31,4 +32,9 @@ gulp.task('default', function() {
         .pipe(imagemin())
         .pipe(gulp.dest('./dist/img'));
 
+});
+
+gulp.task('watch', function() {
+    gulp.watch('./src/*.html', ['default']);
+    gulp.watch('./src/img/*', ['default']);
 });

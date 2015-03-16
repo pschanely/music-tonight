@@ -3,6 +3,7 @@
     <head>
 	<title>MusicTonight</title>
 	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, height=device-height,  initial-scale=1.0, user-scalable=no;user-scalable=0;"/>
 	<link rel="shortcut icon" href="img/favicon.png" type="image/png" />
 	<link rel="icon" href="img/favicon.png" type="image/png" />
 	<link rel="stylesheet" type="text/css" href="bower_components/animate.css/animate.css" />
@@ -17,53 +18,55 @@
 	
 	<script src="bower_components/angularjs/angular.js"></script>
         <script src="bower_components/angular-animate/angular-animate.js"></script>
+	<script src="https://maps.googleapis.com/maps/api/js?libraries=places&key=GOOGLE_API_KEY"></script>
 	
 	<style>
 	 /* CSS reset */
 	 body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,form,fieldset,input,textarea,p,blockquote,th,td { 
-	     margin:0;
-	     padding:0;
+	   margin:0;
+	   padding:0;
 	 }
 	 html {
-	     margin:0;
-	     padding:0;
-	     background: #eee url(img/bkgr.svg) no-repeat top left;
-	     background-size: 100%;
-	     font-size: 100%;
-	     font-family: Arial, Helvetica, sans-serif;
+	   margin:0;
+	   padding:0;
+	   background: #eee url(img/bkgr.svg) no-repeat top left;
+	   background-size: 100%;
+	   font-size: 100%;
+	   font-family: Arial, Helvetica, sans-serif;
 	 }
 	 input:focus, button:focus, a:focus {
-	     outline: 0;
-	     background: #fff !important;
+	   outline: 0;
+	   background: #fff !important;
 	 }
 	 .outlined {
-	     color: #000000;
-	     border: solid #000000 5px;
-	     text-decoration: none;
+	   color: #000000;
+	   border: solid #000000 5px;
+	   text-decoration: none;
 	 }
 	 a:visited, a:link {
 	   color: #444;
 	   text-decoration: none;
 	 }
+	 .big {
+	   font-size: 150%;
+	 }
 	 input.outlined {
-	     padding: 0.3em 0.6em 0.3em 0.6em;
-	     -webkit-border-radius: 0.2em;
-	     -moz-border-radius: 0.2em;
-	     border-radius: 0.2em;
-	     font-size: 150%;
+	   padding: 0.3em 0.6em 0.3em 0.6em;
+	   -webkit-border-radius: 0.2em;
+	   -moz-border-radius: 0.2em;
+	   border-radius: 0.2em;
 	 }
 	 button.outlined, a.outlined {
-	     padding: 0.3em 0.6em 0.3em 0.6em;
-	     -webkit-border-radius: 1.5em;
-	     -moz-border-radius: 1.5em;
-	     border-radius: 1.5em;
-	     font-size: 150%;
-	     text-decoration: none;
-	     opacity: 1;
-	     overflow-x: hidden;
-	     display: inline-block;
+	   padding: 0.3em 0.6em 0.3em 0.6em;
+	   -webkit-border-radius: 1.5em;
+	   -moz-border-radius: 1.5em;
+	   border-radius: 1.5em;
+	   text-decoration: none;
+	   opacity: 1;
+	   overflow-x: hidden;
+	   display: inline-block;
 	 }
-	 a.ng-hide-remove, button.ng-hide-remove {
+	 .bouncy.ng-hide-remove, .bouncy.ng-hide-remove {
 	   -webkit-animation: bounceInRight 1s;
 	   -moz-animation: bounceInRight 1s;
 	   -o-animation: bounceInRight 1s;
@@ -75,45 +78,197 @@
 	   -o-animation: fadeIn 1s;
 	   animation: fadeIn 1s;
 	 }
-	 
+	 #options.ng-hide-remove {
+	   -webkit-animation: bounceInRight 1s;
+	   -moz-animation: bounceInRight 1s;
+	   -o-animation: bounceInRight 1s;
+	   animation: bounceInRight 1s;
+	 }
+	 #options.ng-hide-add {
+	   -webkit-animation: bounceOutRight 1s;
+	   -moz-animation: bounceOutRight 1s;
+	   -o-animation: bounceOutRight 1s;
+	   animation: bounceOutRight 1s;
+	 }
+	 #options {
+	   background-color: #f8f8f8;
+	   box-shadow: 4px 4px 4px #444;
+	   border: solid #000000 0px;
+	   -webkit-border-radius: 1.5em;
+	   -moz-border-radius: 1.5em;
+	   border-radius: 1.5em;
+	   padding: 3em 0.5em;
+	   position: absolute;
+	   width: 85%;
+	   left: 5%;
+	   top: 2em;
+	 }
 	 a:hover, button:hover {
 	   transition: background-color 0.4s ease;
 	   text-decoration: none;
 	   background-color: #fff;
 	 }
 	 ul {
-	     list-style-type: none;
-	     margin: 0em 1em 0em 1em;
+	   list-style-type: none;
+	   margin: 0em 1em 0em 1em;
 	 }
 	 li {
 	   border-top: 1px solid #ddd;
 	   padding: 0px;
 	 }
 	 li:last-child {
-	     border-bottom: 1px solid #ddd;
+	   border-bottom: 1px solid #ddd;
 	 }
 	 @media (min-width: 701px) {
-	     #allcontent {
-		 display:block;
-		 width:700px;
-		 margin: 3em auto;
-	     }
+	   #allcontent {
+	     display:block;
+	     width:700px;
+	     margin: 3em auto;
+	   }
 	 }
 	 @media (max-width: 700px) {
-	     #allcontent {
-		 display:block;
-		 margin: 4px auto;
-	     }
-	     #discussion {
-		 clear:both;
-	     }
+	   #allcontent {
+	     display:block;
+	     margin: 4px auto;
+	   }
+	   #discussion {
+	     clear:both;
+	   }
 	 }
 	 .results {
-	     clear:both;
-	     font-size: 90%;
-	     display:block;
+	   clear:both;
+	   font-size: 90%;
+	   display:block;
 	 }
 	</style>
+    </head>
+    <body ng-controller="mtController">
+      <div id="allcontent">
+	    <div>
+	      
+	      <div id="options" ng-show="showOptions">
+		<div style="text-align: center">
+		  <div>
+		    <input id="citySearchInput" type="text" class="outlined" size="27" placeholder="city/zip"/>
+		    <button class="outlined" style="border-width:2x" onclick="document.getElementById('citySearchInput').value=''">X</button>
+		  </div>
+		  &nbsp;
+		  <div>
+		    <input ng-model="opts.daysout" type="range" min="1" max="7" step="1" />
+		    up to {{opts.daysout}} day{{(opts.daysout>1)?'s':''}} from now
+		  </div>
+		  &nbsp;
+		  <div>
+		    <a href="#" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); showOptions = false; save_options(); get_music()">
+		      done
+		      <svg xmlns="http://www.w3.org/2000/svg" version="1.1"  width="16" height="16" viewBox="0 0 128 128">
+			<g data-width="128" data-height="128" class="iconic-lg iconic-container" display="inline" transform="rotate(0 64 64) translate(24)">
+			  <path d="M78.8 63.1l-77.6-62.2c-.7-.5-1.2-.2-1.2.6v125c0 .8.5 1.1 1.2.6l77.7-62.1c.6-.6.6-1.4-.1-1.9z"></path>
+			</g>
+		      </svg>
+		    </a>
+		  </div>
+		</div>
+	      </div>
+
+
+		<svg
+		    xmlns="http://www.w3.org/2000/svg"
+		    id="svg3410"
+		    version="1.1"
+		    width="240"
+		    height="279"
+		    style="float:left"
+		    viewBox="0 0 269 333"
+                    shape-rendering="auto">
+		    <path
+			style="fill:#000000"
+			d="m 66.688084,305.51341 c -11.17582,-2.20961 -20.33598,-12.71366 -20.33598,-23.31948 0,-5.16839 3.09248,-15.71806 5.98335,-20.41162 1.10916,-1.80079 2.01665,-3.42809 2.01665,-3.61622 0,-0.18814 -2.1375,-2.00648 -4.75,-4.04077 -11.69231,-9.1045 -20.52967,-24.42278 -22.251,-38.56884 -1.64073,-13.48367 0.64132,-35.44713 5.10142,-49.09846 5.56327,-17.02785 19.09041,-37.97847 35.35784,-54.76164 9.054,-9.34105 21.78126,-20.495668 26.21866,-22.978966 1.57778,-0.882969 1.56616,-1.141827 -0.17081,-3.804182 -6.0497,-9.272741 -20.3477,-18.811281 -34.86145,-23.256919 -9.35161,-2.864448 -10.41736,-2.757189 -11.42852,1.150175 -1.68507,6.51151 -11.87727,10.054252 -16.88762,5.870023 -6.38007,-5.328112 -8.09389,-14.386157 -4.26365,-22.534639 2.61368,-5.560361 4.81581,-7.544015 9.0611,-8.162129 5.44495,-0.792784 10.93091,2.984854 13.35159,9.193915 l 1.97756,5.072461 6.90509,1.62053 c 15.95615,3.744695 34.77348,16.079853 39.82833,26.108307 1.13151,2.244843 2.18145,4.223496 2.33319,4.397008 0.151736,0.173512 2.908916,-1.000888 6.127076,-2.609778 10.77592,-5.387332 30.96488,-11.16268 39.12024,-11.190917 4.17481,-0.01445 4.25208,-0.07549 3.5,-2.764781 -0.42298,-1.5125 -0.73515,-6.575 -0.69372,-11.25 0.0866,-9.772854 2.76638,-17.426855 7.49418,-21.405034 3.26936,-2.750986 14.88956,-5.279225 16.00073,-3.481322 0.36853,0.596306 0.9591,-0.456498 1.31236,-2.339565 1.047,-5.58099 10.23274,-12.763249 16.3326,-12.770341 6.62088,-0.0077 15.24659,11.340766 13.76098,18.104703 -0.88421,4.025793 -6.45914,9.438151 -10.56812,10.259948 -2.51509,0.503017 -4.64078,0.01857 -8.75859,-1.996086 -2.99061,-1.46317 -6.1817,-3.404534 -7.09131,-4.314142 -1.44057,-1.440572 -2.51007,-1.51371 -8.2939,-0.567182 -3.67049,0.600678 -7.53564,1.897138 -8.6426,2.898925 -3.0034,2.718038 -5.13391,10.158419 -5.02198,17.538235 0.16722,11.024707 0.45531,11.467974 7.94356,12.222164 14.411,1.451427 28.08112,6.686076 36.25899,13.884532 5.56363,4.897303 14.78021,18.380417 20.1458,29.471697 l 3.87329,8.00651 5.2468,-5.12251 c 6.00442,-5.86219 13.37521,-9.86068 16.40466,-8.89917 1.68943,0.53621 2.02722,1.4987 2.02722,5.77639 0,5.35688 -8.89866,40.73224 -10.24618,40.73224 -1.24102,0 -0.8971,-2.93237 2.23845,-19.08523 3.06084,-15.76805 3.60802,-20.91476 2.22357,-20.91476 -1.58839,0 -11.21584,10.62249 -11.21584,12.37505 0,0.9967 -0.80139,2.02175 -1.78088,2.27789 -1.66227,0.43469 -1.58863,1.21102 1.1056,11.65638 2.49893,9.68821 2.95269,13.60736 3.37971,29.19067 0.43068,15.7174 0.22353,19.30545 -1.63359,28.29443 -3.12733,15.13719 -9.26985,29.73557 -15.85483,37.68074 -3.79384,4.57749 -9.92978,8.95028 -18.80072,13.39836 -7.26931,3.64498 -24.68158,10.12647 -27.20439,10.12647 -1.39845,0 -2.43787,-4.77201 -1.43122,-6.5708 0.46022,-0.82236 5.82336,-3.19954 11.9181,-5.28262 22.91045,-7.83042 31.67623,-15.65027 38.84938,-34.65708 12.31985,-32.64412 8.44316,-70.68421 -10.59438,-103.95753 -5.17573,-9.046 -12.07055,-17.498912 -17.50403,-21.459564 -5.0254,-3.663183 -16.86452,-7.701488 -25.36241,-8.651075 -5.60551,-0.626382 -6.33742,-0.518021 -5.80864,0.859981 0.33277,0.867168 0.9148,3.227864 1.2934,5.245991 0.59274,3.159574 0.44493,3.620935 -1.06397,3.321014 -0.99026,-0.196831 -2.5239,-2.305337 -3.52645,-4.848309 l -1.77411,-4.5 -7.35329,0.116926 c -8.3142,0.132206 -19.17907,2.881595 -31.85328,8.060573 -10.60624,4.333956 -11.50456,5.121 -9.88991,8.664791 1.72808,3.79271 0.21165,4.594052 -2.42831,1.28322 l -2.229716,-2.796331 -6.31739,4.650601 c -12.60112,9.276412 -28.0981,25.555092 -37.49323,39.384482 l -3.64427,5.36426 5.49681,3.31001 c 8.22244,4.95129 26.50602,20.46933 26.50602,22.49676 0,3.92465 -3.22232,2.66823 -14.15216,-5.51809 -12.14192,-9.09416 -20.29197,-13.97879 -21.78457,-13.05631 -0.56547,0.34947 -0.32634,2.67426 0.5977,5.81082 5.14402,17.46085 10.40803,28.67155 15.7312,33.50253 4.01714,3.64572 4.28035,4.42272 2.10873,6.225 -2.1094,1.75065 -6.93978,-0.38278 -9.9527,-4.39579 -3.18939,-4.24805 -8.89571,-15.94053 -11.03124,-22.60346 -0.96954,-3.025 -2.10749,-5.8775 -2.52877,-6.33889 -0.76636,-0.83932 -3.88077,7.86833 -5.84382,16.33889 -2.22411,9.59704 -3.30641,26.59475 -2.20769,34.67208 2.15675,15.85548 11.85454,29.49166 29.41112,41.35531 9.33888,6.31064 11.62375,9.27883 8.16454,10.60625 -0.81821,0.31398 -3.54373,-0.63407 -6.05671,-2.10677 -5.34114,-3.13012 -6.65214,-2.58035 -9.44057,3.95897 -3.14163,7.36758 -4.30842,14.09525 -3.08663,17.79732 1.13363,3.43491 5.88727,8.61426 9.69692,10.56532 1.99768,1.02308 2.16532,0.78718 2.79068,-3.927 0.7131,-5.37561 2.70853,-7.22549 5.15502,-4.779 1.09493,1.09493 1.19072,2.20139 0.42246,4.88014 -1.70129,5.93205 -1.48056,6.30936 3.25649,5.56667 4.76987,-0.74783 15.07331,-5.30982 18.50611,-8.19385 1.24087,-1.04249 3.29247,-4.5944 4.55913,-7.89313 1.464196,-3.81318 2.957556,-6.12375 4.100106,-6.34378 3.22661,-0.62139 3.80779,1.21884 2.49398,7.89682 -1.65231,8.39853 -5.607876,12.7424 -16.290776,17.89 -8.70033,4.19228 -15.33096,5.38601 -22.28257,4.01158 z M 41.277894,61.630701 c 1.24228,-1.242288 1.72377,-2.698296 1.3566,-4.102358 -0.32117,-1.228156 -0.0299,-2.509885 0.66851,-2.941512 2.68379,-1.658672 -4.40064,-10.83921 -7.45881,-9.665682 -1.9067,0.731671 -4.49209,6.575081 -4.49209,10.15288 0,1.419979 0.68655,3.909432 1.52568,5.532119 1.81367,3.507245 5.4713,3.953363 8.40011,1.024553 z M 194.16354,36.517533 c 2.75029,-2.562289 2.79031,-5.92633 0.11101,-9.332507 -3.05034,-3.877877 -5.47694,-4.92862 -8.17245,-3.538759 -3.60884,1.860794 -6.64509,5.020036 -6.12562,6.373754 0.27197,0.708744 -0.84255,1.79841 -2.57223,2.514868 -3.56041,1.474768 -4.06667,2.936992 -0.80215,2.316805 1.2375,-0.235098 4.275,0.492422 6.75,1.61671 5.70295,2.590608 8.07193,2.601373 10.81144,0.04913 z M 151.68006,297.61831 c -5.1095,-2.31988 -7.07949,-5.19723 -9.47638,-13.84118 -2.20166,-7.93986 -2.22094,-8.22065 -0.56457,-8.22065 0.70785,0 2.96667,2.92041 5.0196,6.48979 4.51601,7.85189 7.50211,10.01021 13.84941,10.01021 7.21444,0 7.55209,-1.03584 3.20284,-9.82553 -2.06943,-4.18224 -3.40017,-7.95741 -2.9572,-8.38927 0.44297,-0.43186 2.44631,1.21347 4.45187,3.65629 2.00556,2.44281 4.65435,5.59281 5.8862,7 l 2.23974,2.55851 4.13763,-4.34782 4.13764,-4.34783 -0.62307,-6.65217 c -0.34268,-3.6587 -0.7375,-7.77718 -0.87737,-9.15218 -0.1944,-1.91117 0.26333,-2.57365 1.94339,-2.8127 5.20987,-0.74128 8.73933,15.19935 4.97646,22.47593 -2.42423,4.68794 -9.63733,11.13207 -16.08387,14.3692 -6.99762,3.51386 -13.07501,3.83864 -19.26232,1.0294 z m -16.41415,-63.45448 c -7.07389,-3.76411 -9.04133,-5.87983 -7.18966,-7.7315 0.90559,-0.90559 2.59784,-0.56394 7.29344,1.47248 7.75082,3.36143 9.14596,3.32498 13.32963,-0.34833 3.37017,-2.95905 6.65278,-3.94703 6.65278,-2.00231 0,0.54872 -1.58553,3.20462 -3.52339,5.90198 -5.29715,7.37325 -7.20779,7.6856 -16.5628,2.70768 z m -7.50882,-71.71234 c -1.61352,-1.78292 -1.90499,-3.67938 -1.90499,-12.39501 0,-8.71563 0.29147,-10.61209 1.90499,-12.39501 2.55654,-2.82496 5.02002,-2.65143 7.52243,0.52987 1.74538,2.21888 2.07258,4.0448 2.07258,11.56574 0,10.75932 -1.64166,14.74133 -6.09501,14.78409 -0.87726,0.008 -2.45226,-0.93193 -3.5,-2.08968 z m 43.58151,-5.6393 c -1.93776,-2.46347 -2.12426,-3.73206 -1.82258,-12.3974 0.27076,-7.77678 0.70636,-10.06181 2.24107,-11.75571 2.55728,-2.82256 5.02063,-2.64826 7.52243,0.53226 1.75677,2.23337 2.07258,4.04131 2.07258,11.86514 0,7.82383 -0.31581,9.63177 -2.07258,11.86514 -2.65688,3.37768 -5.22581,3.34228 -7.94092,-0.10943 z"
+			id="path3422" />
+		</svg>
+
+		<div style="font-size:80px; padding-top:10px; font-family: Georgia, serif;">{{(just_authed()) ? ((is_loading) ? '...' : '&#9825;') : 'hi'}}</div>
+		<div id="discussion" style="padding: 1em">
+		    <div ng-hide="just_authed()" style="text-align:center">
+			<div style="font-size: 115%">
+			    I make spotify playlists of artists playing near you, tonight.
+			</div>
+			&nbsp;
+			<div ng-show="track_data && !is_loading" class="bouncy">
+			  <a href="#" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); showOptions = true">
+			    <svg xmlns="http://www.w3.org/2000/svg" version="1.1"  width="16" height="16" viewBox="0 0 128 128">
+			      <g data-width="128" data-height="128" class="iconic-lg iconic-container" display="inline" transform="rotate(180 64 64) translate(24)">
+				<path d="M78.8 63.1l-77.6-62.2c-.7-.5-1.2-.2-1.2.6v125c0 .8.5 1.1 1.2.6l77.7-62.1c.6-.6.6-1.4-.1-1.9z"></path>
+			      </g>
+			    </svg>
+			    options
+			  </a>
+			  <a href="#" style="display:inline-block; margin-left:auto; margin-right:auto" class="outlined big" ng-click="$event.preventDefault(); make_playlist()">Make Playlist</a>
+			</div>
+		    </div>
+		    <div ng-show="just_authed()">
+			<div ng-show="is_loading">
+			    Creating Playlist...
+			</div>
+			<div ng-hide="is_loading" style="text-align:left" class="bouncy">
+			    <a ng-href="{{playlist_http}}" style="display:inline-block; margin-left:auto; margin-right:auto" class="outlined big" ng-click="$event.preventDefault(); open_playlist()">Open Playlist In Spotify</a>
+			</div>
+		    </div>
+		</div>
+	    </div>
+	    <div class="results">
+		<div ng-show="is_loading">
+
+
+		    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="128" height="64" fill="black">
+			<path transform="translate(2)" d="M0 12 V20 H4 V12z"> 
+			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline"  />
+			</path>
+			<path transform="translate(8)" d="M0 12 V20 H4 V12z">
+			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0.2" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline"  />
+			</path>
+			<path transform="translate(14)" d="M0 12 V20 H4 V12z">
+			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0.4" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline" />
+			</path>
+			<path transform="translate(20)" d="M0 12 V20 H4 V12z">
+			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0.6" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline" />
+			</path>
+			<path transform="translate(26)" d="M0 12 V20 H4 V12z">
+			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0.8" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline" />
+			</path>
+		    </svg>
+
+
+		</div>
+		<ul ng-show="track_data">
+		    <li ng-repeat="track in track_data">
+		      <a href style="display:block; padding:0.3em 1em" ng-click="buy_tickets(track.event)">
+			{{track.name}}<br/>
+			{{track.artist}} @ {{track.event.venue.name}}
+		      </a>
+		    </li>
+		</ul>
+	    </div>
+	    <div style="padding:6em 1em 1em 1em">&nbsp;</div>
+	    <div ng-hide="is_app" style="display:block; width:130px; margin: 1em auto" >
+	      <a href="https://play.google.com/store/apps/details?id=com.millstonecw.musictonight">
+		<img alt="Get it on Google Play" width="129" height="45" src="https://developer.android.com/images/brand/en_generic_rgb_wo_45.png" />
+	      </a>
+	    </div>
+	    <div style="padding:1em; text-align:center; font-size:80%">
+		<div>
+		    <span>
+			I'm new at this.  Chat with me! - musictonight@millstonecw.com
+		    </span>
+		</div>
+		<div style="padding-top:0.6em">
+		    <a href="http://www.spotify.com"><img height="33" width="110" src="img/spotify-logo-primary-horizontal-light-background-rgb2.png" style="position:relative; top:9px"/></a>
+		    and
+		    <a href="http://seatgeek.com"><img height="31" width="102" src="img/seatgeek102x31.png" style="position:relative; top:13px;"/></a>
+		    help me do this.
+		</div>
+	    </div>
+	</div>
 	<script>
 	 (function() {
 	   var client_id = 'SPOTIFY_CLIENT_ID';
@@ -122,7 +277,8 @@
 	   var g_name = format_date(new Date()) + '-music-tonight';
 	   var is_app = (window.location.search !== undefined) ? (window.location.search.indexOf('?mobileapp=1') == 0) : false;
 	   var base = (window.location + "").replace(/(\/[^\/]*)$/, '');
-	   var get_playlist_uri = base + '/api/playlist';
+	   var server = (is_app) ? 'APP_SERVER_URL' : base;
+	   var get_playlist_uri = server + '/api/playlist';
 	   var platform = 'web';
 	   if (is_app) {
 	     platform = (navigator.userAgent.match(/iPad/i))  == "iPad" ? "ios" : (navigator.userAgent.match(/iPhone/i))  == "iPhone" ? "ios" : (navigator.userAgent.match(/Android/i)) == "Android" ? "android" : "unknown_app";
@@ -133,7 +289,6 @@
 	     'unknown_app': 'http://localhost',
 	     'web': base
 	   }[platform];
-	   
 	   
 	   function format_date(dt) {
 	     var yyyy = dt.getFullYear().toString();
@@ -249,216 +404,145 @@
 	     };
 	   }]);
 	   
-	   module.controller('mtController', ['$scope', '$http', '$q', 'mtSpotify', function($scope, $http, $q, mtSpotify) {
-	     $scope.lang = navigator.languages? navigator.languages[0] : (navigator.language || navigator.userLanguage);
-	     mtSpotify.parseUrl(window.location.hash);
-	     $scope.is_app = is_app;
-	     $scope.just_authed = function() { return mtSpotify.isAuthed(); }
-	     
-	     $scope.zipcode = '';
-	     
-	     $scope.$watch(function(scope){return scope.zipcode;},
-			   function(newv, oldv) {
-			     if (newv.match(/^\d{5}$/)) {
-			       $scope.get_music(newv);
-			     } 
-			   });
-	     
-	     $scope.get_music = function(zipcode, coords) {
-	       $scope.is_loading = true;
-	       $scope.track_data = [];
-	       ga('send', 'event', 'loading_playlist');
-	       var uri = get_playlist_uri;
-	       if (coords) {
-		 uri += '?latlon=' + coords.latitude + ',' + coords.longitude;
-	       } else if (zipcode) {
-		 uri += '?zip_code=' + zipcode;
-	       }
-	       return $http.get(uri).then(
-		 function(response) {
-		   g_name = response.data.name;
-		   $scope.track_data = response.data.tracks;
-		   $scope.is_loading = false;
-		 },
-		 function(error) {
-		   alert("Sorry!  I'm having trouble talking to my friends.");
-		   return $scope.get_music(zipcode, coords);
-		 }
+	   module.controller('mtController', [
+	     '$scope', '$http', '$q', '$timeout', 'mtSpotify', 
+	     function($scope, $http, $q, $timeout, mtSpotify) {
+	       $scope.lang = navigator.languages? navigator.languages[0] : (navigator.language || navigator.userLanguage);
+	       mtSpotify.parseUrl(window.location.hash);
+	       $scope.is_app = is_app;
+	       $scope.just_authed = function() { return mtSpotify.isAuthed(); }
+	       $scope.opts = (localStorage.getItem('opts')) ? JSON.parse(localStorage.getItem('opts')) : {daysout:1, loctext:''};
+	       console.log(' : ', $scope.opts);
+
+	       var citySearchInput = document.getElementById('citySearchInput');
+	       citySearchInput.value = $scope.opts.loctext;
+	       var cityAutocomplete = new google.maps.places.Autocomplete(
+		 citySearchInput, { types: ['(regions)'] }
 	       );
-	     };
-	     
-	     $scope.make_playlist = function(zipcode) {
-	       ga('send', 'event', 'start_auth');
-	       g_tracks = $scope.track_data;
-	       doLogin(function(code) {
-		 if (code) {
-		   mtSpotify.setAccessCode(code);
-		   $scope.create_playlist();
+
+	       $scope.place_to_scope = function() {
+		 var place = cityAutocomplete.getPlace();
+		 var loctext = citySearchInput.value;
+		 if (loctext && place) {
+		   var loc = place.geometry.location;
+		   $scope.opts.latlon = loc.k + ',' + loc.D;
+		   $scope.opts.loctext = loctext;
+		 } else {
+		   $scope.opts.latlon = null;
+		   $scope.opts.loctext = '';
 		 }
-	       });
-	     };
-	     
-	     $scope.create_playlist = function() {
-	       ga('send', 'event', 'finish_auth');
-	       var playlist_name = localStorage.getItem('createplaylist-name');
-	       var playlist_tracks = JSON.parse(localStorage.getItem('createplaylist-tracks'));
-	       $scope.is_loading = true;
-	       return mtSpotify.getUsername().then(function(username) {
-		 return mtSpotify.createPlaylist(username, playlist_name).then(function(playlist_id) {
-		   $scope.playlist_http = 'https://play.spotify.com/user/'+username+'/playlist/'+playlist_id;
-		   $scope.playlist_uri = 'spotify:user:'+username+':playlist:'+playlist_id;
-		   var uris = playlist_tracks.map(function(track){return track.uri;});
-		   return mtSpotify.addTracksToPlaylist(username, playlist_id, uris);
-		 });
-	       }).then(
-		 function() {
-		   $scope.track_data = playlist_tracks;
-		   ga('send', 'event', 'created_playlist');
-		   $scope.is_loading = false;
-		 },
-		 function() {
-		   alert("Sorry!  I'm having trouble talking to Spotify.");
-		   $scope.create_playlist();
+	       };
+
+	       google.maps.event.addListener(cityAutocomplete, 'place_changed', $scope.place_to_scope);
+
+	       $scope.get_music = function(coords) {
+		 $scope.is_loading = true;
+		 $scope.track_data = [];
+		 ga('send', 'event', 'loading_playlist');
+		 var uri = get_playlist_uri;
+		 uri += '?daysout=' + $scope.opts.daysout;
+		 if ($scope.opts.latlon) {
+		   uri += '&latlon=' + $scope.opts.latlon;
+		 } else if (coords) {
+		   uri += '&latlon=' + coords.latitude + ',' + coords.longitude;
 		 }
-	       );
-	     };
-	     
-	     $scope.buy_tickets = function(event) {
-	       if (is_app) {
-		 cordova.exec(null, null, "InAppBrowser", "open", [event.url, "_system"]);
-	       } else {
-		 window.location = event.url;
-	       }
-	     }
-	     
-	     $scope.open_playlist = function() {
-	       ga('send', 'event', 'opened_playlist');
-	       if (is_app && (platform == 'ios' || platform == 'android')) {
-		 var scheme = {'ios':'spotify://', 'android':'com.spotify.music'}[platform];
-		 appAvailability.check(
-		   scheme, 
-		   function() { window.location = $scope.playlist_uri; },
-		   function() { window.location = $scope.playlist_http; });
-	       } else {
-		 window.location = $scope.playlist_http;
-	       }
-	     };
-	     
-	     if ($scope.just_authed()) {
-	       $scope.create_playlist();
-	     } else {
-	       if (is_app) {
-		 document.addEventListener("deviceready", function() {
-		   navigator.geolocation.getCurrentPosition(function(position) {
-		     $scope.get_music(null, position.coords);
+		 return $http.get(uri).then(
+		   function(response) {
+		     g_name = response.data.name;
+		     $scope.track_data = response.data.tracks;
+		     $scope.is_loading = false;
 		   },
-		   function(err) { // try via IP
-		     $scope.get_music();
-		   });
+		   function(error) {
+		     alert("Can you check your connection? Let's try again.");
+		     $timeout(function(){$scope.get_music(coords);}, 3500);
+		   }
+		 );
+	       };
+	       
+	       $scope.make_playlist = function() {
+		 ga('send', 'event', 'start_auth');
+		 g_tracks = $scope.track_data;
+		 doLogin(function(code) {
+		   if (code) {
+		     mtSpotify.setAccessCode(code);
+		     $scope.create_playlist();
+		   }
 		 });
-	       } else {
-		 $scope.get_music();
+	       };
+	       
+	       $scope.create_playlist = function() {
+		 ga('send', 'event', 'finish_auth');
+		 var playlist_name = localStorage.getItem('createplaylist-name');
+		 var playlist_tracks = JSON.parse(localStorage.getItem('createplaylist-tracks'));
+		 $scope.is_loading = true;
+		 return mtSpotify.getUsername().then(function(username) {
+		   return mtSpotify.createPlaylist(username, playlist_name).then(function(playlist_id) {
+		     $scope.playlist_http = 'https://play.spotify.com/user/'+username+'/playlist/'+playlist_id;
+		     $scope.playlist_uri = 'spotify:user:'+username+':playlist:'+playlist_id;
+		     var uris = playlist_tracks.map(function(track){return track.uri;});
+		     return mtSpotify.addTracksToPlaylist(username, playlist_id, uris);
+		   });
+		 }).then(
+		   function() {
+		     $scope.track_data = playlist_tracks;
+		     ga('send', 'event', 'created_playlist');
+		     $scope.is_loading = false;
+		   },
+		   function() {
+		     alert("Sorry!  I'm having trouble talking to Spotify.");
+		     $scope.create_playlist();
+		   }
+		 );
+	       };
+	       
+	       $scope.buy_tickets = function(event) {
+		 if (is_app) {
+		   cordova.exec(null, null, "InAppBrowser", "open", [event.url, "_system"]);
+		 } else {
+		   window.location = event.url;
+		 }
 	       }
-	     }
-	     
-	   }]);
+	       
+	       $scope.open_playlist = function() {
+		 ga('send', 'event', 'opened_playlist');
+		 if (is_app && (platform == 'ios' || platform == 'android')) {
+		   var scheme = {'ios':'spotify://', 'android':'com.spotify.music'}[platform];
+		   appAvailability.check(
+		     scheme, 
+		     function() { window.location = $scope.playlist_uri; },
+		     function() { window.location = $scope.playlist_http; });
+		 } else {
+		   window.location = $scope.playlist_http;
+		 }
+	       };
+	       
+	       $scope.save_options = function() {
+		 $scope.place_to_scope();
+		 localStorage.setItem('opts', JSON.stringify($scope.opts));
+	       }
+	       
+	       if ($scope.just_authed()) {
+		 $scope.create_playlist();
+	       } else {
+		 if (is_app) {
+		   document.addEventListener("deviceready", function() {
+		     navigator.geolocation.getCurrentPosition(
+		       function(position) {
+			 $scope.get_music(position.coords);
+		       },
+		       function(err) { // try via IP
+			 $scope.get_music();
+		       });
+		   });
+		 } else {
+		   $scope.get_music();
+		 }
+	       }
+	       
+	     }]);
 	   
 	 })();
+
 	</script>
-
-    </head>
-    <body ng-controller="mtController">
-      <div id="allcontent">
-	    <div>
-
-
-		<svg
-		    xmlns="http://www.w3.org/2000/svg"
-		    id="svg3410"
-		    version="1.1"
-		    width="240"
-		    height="279"
-		    style="float:left"
-		    viewBox="0 0 269 333">
-		    <path
-			style="fill:#000000"
-			d="m 66.688084,305.51341 c -11.17582,-2.20961 -20.33598,-12.71366 -20.33598,-23.31948 0,-5.16839 3.09248,-15.71806 5.98335,-20.41162 1.10916,-1.80079 2.01665,-3.42809 2.01665,-3.61622 0,-0.18814 -2.1375,-2.00648 -4.75,-4.04077 -11.69231,-9.1045 -20.52967,-24.42278 -22.251,-38.56884 -1.64073,-13.48367 0.64132,-35.44713 5.10142,-49.09846 5.56327,-17.02785 19.09041,-37.97847 35.35784,-54.76164 9.054,-9.34105 21.78126,-20.495668 26.21866,-22.978966 1.57778,-0.882969 1.56616,-1.141827 -0.17081,-3.804182 -6.0497,-9.272741 -20.3477,-18.811281 -34.86145,-23.256919 -9.35161,-2.864448 -10.41736,-2.757189 -11.42852,1.150175 -1.68507,6.51151 -11.87727,10.054252 -16.88762,5.870023 -6.38007,-5.328112 -8.09389,-14.386157 -4.26365,-22.534639 2.61368,-5.560361 4.81581,-7.544015 9.0611,-8.162129 5.44495,-0.792784 10.93091,2.984854 13.35159,9.193915 l 1.97756,5.072461 6.90509,1.62053 c 15.95615,3.744695 34.77348,16.079853 39.82833,26.108307 1.13151,2.244843 2.18145,4.223496 2.33319,4.397008 0.151736,0.173512 2.908916,-1.000888 6.127076,-2.609778 10.77592,-5.387332 30.96488,-11.16268 39.12024,-11.190917 4.17481,-0.01445 4.25208,-0.07549 3.5,-2.764781 -0.42298,-1.5125 -0.73515,-6.575 -0.69372,-11.25 0.0866,-9.772854 2.76638,-17.426855 7.49418,-21.405034 3.26936,-2.750986 14.88956,-5.279225 16.00073,-3.481322 0.36853,0.596306 0.9591,-0.456498 1.31236,-2.339565 1.047,-5.58099 10.23274,-12.763249 16.3326,-12.770341 6.62088,-0.0077 15.24659,11.340766 13.76098,18.104703 -0.88421,4.025793 -6.45914,9.438151 -10.56812,10.259948 -2.51509,0.503017 -4.64078,0.01857 -8.75859,-1.996086 -2.99061,-1.46317 -6.1817,-3.404534 -7.09131,-4.314142 -1.44057,-1.440572 -2.51007,-1.51371 -8.2939,-0.567182 -3.67049,0.600678 -7.53564,1.897138 -8.6426,2.898925 -3.0034,2.718038 -5.13391,10.158419 -5.02198,17.538235 0.16722,11.024707 0.45531,11.467974 7.94356,12.222164 14.411,1.451427 28.08112,6.686076 36.25899,13.884532 5.56363,4.897303 14.78021,18.380417 20.1458,29.471697 l 3.87329,8.00651 5.2468,-5.12251 c 6.00442,-5.86219 13.37521,-9.86068 16.40466,-8.89917 1.68943,0.53621 2.02722,1.4987 2.02722,5.77639 0,5.35688 -8.89866,40.73224 -10.24618,40.73224 -1.24102,0 -0.8971,-2.93237 2.23845,-19.08523 3.06084,-15.76805 3.60802,-20.91476 2.22357,-20.91476 -1.58839,0 -11.21584,10.62249 -11.21584,12.37505 0,0.9967 -0.80139,2.02175 -1.78088,2.27789 -1.66227,0.43469 -1.58863,1.21102 1.1056,11.65638 2.49893,9.68821 2.95269,13.60736 3.37971,29.19067 0.43068,15.7174 0.22353,19.30545 -1.63359,28.29443 -3.12733,15.13719 -9.26985,29.73557 -15.85483,37.68074 -3.79384,4.57749 -9.92978,8.95028 -18.80072,13.39836 -7.26931,3.64498 -24.68158,10.12647 -27.20439,10.12647 -1.39845,0 -2.43787,-4.77201 -1.43122,-6.5708 0.46022,-0.82236 5.82336,-3.19954 11.9181,-5.28262 22.91045,-7.83042 31.67623,-15.65027 38.84938,-34.65708 12.31985,-32.64412 8.44316,-70.68421 -10.59438,-103.95753 -5.17573,-9.046 -12.07055,-17.498912 -17.50403,-21.459564 -5.0254,-3.663183 -16.86452,-7.701488 -25.36241,-8.651075 -5.60551,-0.626382 -6.33742,-0.518021 -5.80864,0.859981 0.33277,0.867168 0.9148,3.227864 1.2934,5.245991 0.59274,3.159574 0.44493,3.620935 -1.06397,3.321014 -0.99026,-0.196831 -2.5239,-2.305337 -3.52645,-4.848309 l -1.77411,-4.5 -7.35329,0.116926 c -8.3142,0.132206 -19.17907,2.881595 -31.85328,8.060573 -10.60624,4.333956 -11.50456,5.121 -9.88991,8.664791 1.72808,3.79271 0.21165,4.594052 -2.42831,1.28322 l -2.229716,-2.796331 -6.31739,4.650601 c -12.60112,9.276412 -28.0981,25.555092 -37.49323,39.384482 l -3.64427,5.36426 5.49681,3.31001 c 8.22244,4.95129 26.50602,20.46933 26.50602,22.49676 0,3.92465 -3.22232,2.66823 -14.15216,-5.51809 -12.14192,-9.09416 -20.29197,-13.97879 -21.78457,-13.05631 -0.56547,0.34947 -0.32634,2.67426 0.5977,5.81082 5.14402,17.46085 10.40803,28.67155 15.7312,33.50253 4.01714,3.64572 4.28035,4.42272 2.10873,6.225 -2.1094,1.75065 -6.93978,-0.38278 -9.9527,-4.39579 -3.18939,-4.24805 -8.89571,-15.94053 -11.03124,-22.60346 -0.96954,-3.025 -2.10749,-5.8775 -2.52877,-6.33889 -0.76636,-0.83932 -3.88077,7.86833 -5.84382,16.33889 -2.22411,9.59704 -3.30641,26.59475 -2.20769,34.67208 2.15675,15.85548 11.85454,29.49166 29.41112,41.35531 9.33888,6.31064 11.62375,9.27883 8.16454,10.60625 -0.81821,0.31398 -3.54373,-0.63407 -6.05671,-2.10677 -5.34114,-3.13012 -6.65214,-2.58035 -9.44057,3.95897 -3.14163,7.36758 -4.30842,14.09525 -3.08663,17.79732 1.13363,3.43491 5.88727,8.61426 9.69692,10.56532 1.99768,1.02308 2.16532,0.78718 2.79068,-3.927 0.7131,-5.37561 2.70853,-7.22549 5.15502,-4.779 1.09493,1.09493 1.19072,2.20139 0.42246,4.88014 -1.70129,5.93205 -1.48056,6.30936 3.25649,5.56667 4.76987,-0.74783 15.07331,-5.30982 18.50611,-8.19385 1.24087,-1.04249 3.29247,-4.5944 4.55913,-7.89313 1.464196,-3.81318 2.957556,-6.12375 4.100106,-6.34378 3.22661,-0.62139 3.80779,1.21884 2.49398,7.89682 -1.65231,8.39853 -5.607876,12.7424 -16.290776,17.89 -8.70033,4.19228 -15.33096,5.38601 -22.28257,4.01158 z M 41.277894,61.630701 c 1.24228,-1.242288 1.72377,-2.698296 1.3566,-4.102358 -0.32117,-1.228156 -0.0299,-2.509885 0.66851,-2.941512 2.68379,-1.658672 -4.40064,-10.83921 -7.45881,-9.665682 -1.9067,0.731671 -4.49209,6.575081 -4.49209,10.15288 0,1.419979 0.68655,3.909432 1.52568,5.532119 1.81367,3.507245 5.4713,3.953363 8.40011,1.024553 z M 194.16354,36.517533 c 2.75029,-2.562289 2.79031,-5.92633 0.11101,-9.332507 -3.05034,-3.877877 -5.47694,-4.92862 -8.17245,-3.538759 -3.60884,1.860794 -6.64509,5.020036 -6.12562,6.373754 0.27197,0.708744 -0.84255,1.79841 -2.57223,2.514868 -3.56041,1.474768 -4.06667,2.936992 -0.80215,2.316805 1.2375,-0.235098 4.275,0.492422 6.75,1.61671 5.70295,2.590608 8.07193,2.601373 10.81144,0.04913 z M 151.68006,297.61831 c -5.1095,-2.31988 -7.07949,-5.19723 -9.47638,-13.84118 -2.20166,-7.93986 -2.22094,-8.22065 -0.56457,-8.22065 0.70785,0 2.96667,2.92041 5.0196,6.48979 4.51601,7.85189 7.50211,10.01021 13.84941,10.01021 7.21444,0 7.55209,-1.03584 3.20284,-9.82553 -2.06943,-4.18224 -3.40017,-7.95741 -2.9572,-8.38927 0.44297,-0.43186 2.44631,1.21347 4.45187,3.65629 2.00556,2.44281 4.65435,5.59281 5.8862,7 l 2.23974,2.55851 4.13763,-4.34782 4.13764,-4.34783 -0.62307,-6.65217 c -0.34268,-3.6587 -0.7375,-7.77718 -0.87737,-9.15218 -0.1944,-1.91117 0.26333,-2.57365 1.94339,-2.8127 5.20987,-0.74128 8.73933,15.19935 4.97646,22.47593 -2.42423,4.68794 -9.63733,11.13207 -16.08387,14.3692 -6.99762,3.51386 -13.07501,3.83864 -19.26232,1.0294 z m -16.41415,-63.45448 c -7.07389,-3.76411 -9.04133,-5.87983 -7.18966,-7.7315 0.90559,-0.90559 2.59784,-0.56394 7.29344,1.47248 7.75082,3.36143 9.14596,3.32498 13.32963,-0.34833 3.37017,-2.95905 6.65278,-3.94703 6.65278,-2.00231 0,0.54872 -1.58553,3.20462 -3.52339,5.90198 -5.29715,7.37325 -7.20779,7.6856 -16.5628,2.70768 z m -7.50882,-71.71234 c -1.61352,-1.78292 -1.90499,-3.67938 -1.90499,-12.39501 0,-8.71563 0.29147,-10.61209 1.90499,-12.39501 2.55654,-2.82496 5.02002,-2.65143 7.52243,0.52987 1.74538,2.21888 2.07258,4.0448 2.07258,11.56574 0,10.75932 -1.64166,14.74133 -6.09501,14.78409 -0.87726,0.008 -2.45226,-0.93193 -3.5,-2.08968 z m 43.58151,-5.6393 c -1.93776,-2.46347 -2.12426,-3.73206 -1.82258,-12.3974 0.27076,-7.77678 0.70636,-10.06181 2.24107,-11.75571 2.55728,-2.82256 5.02063,-2.64826 7.52243,0.53226 1.75677,2.23337 2.07258,4.04131 2.07258,11.86514 0,7.82383 -0.31581,9.63177 -2.07258,11.86514 -2.65688,3.37768 -5.22581,3.34228 -7.94092,-0.10943 z"
-			id="path3422" />
-		</svg>
-
-		<div style="font-size:80px; padding-top:10px; font-family: Georgia, serif;">{{(just_authed()) ? ((is_loading) ? '...' : '&#9825;') : 'hi'}}</div>
-		<div id="discussion" style="padding: 1em">
-		    <div ng-hide="just_authed()" style="text-align:center">
-			<div style="font-size: 115%">
-			    I make spotify playlists of artists playing near you, tonight.
-			</div>
-			&nbsp;
-			<div>
-			    <a ng-show="track_data && !is_loading" href="#" style="display:inline-block; margin-left:auto; margin-right:auto" class="outlined" ng-click="$event.preventDefault(); make_playlist()">Make Playlist</a>
-			</div>
-		    </div>
-		    <div ng-show="just_authed()">
-			<div ng-show="is_loading">
-			    Creating Playlist...
-			</div>
-			<div style="text-align:left">
-			    <a ng-hide="is_loading" ng-href="{{playlist_http}}" style="display:inline-block; margin-left:auto; margin-right:auto" class="outlined" ng-click="$event.preventDefault(); open_playlist()">Open Playlist In Spotify</a>
-			</div>
-		    </div>
-		</div>
-	    </div>
-	    <div class="results">
-		<div ng-show="is_loading">
-
-
-		    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="128" height="64" fill="black">
-			<path transform="translate(2)" d="M0 12 V20 H4 V12z"> 
-			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline"  />
-			</path>
-			<path transform="translate(8)" d="M0 12 V20 H4 V12z">
-			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0.2" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline"  />
-			</path>
-			<path transform="translate(14)" d="M0 12 V20 H4 V12z">
-			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0.4" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline" />
-			</path>
-			<path transform="translate(20)" d="M0 12 V20 H4 V12z">
-			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0.6" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline" />
-			</path>
-			<path transform="translate(26)" d="M0 12 V20 H4 V12z">
-			    <animate attributeName="d" values="M0 12 V20 H4 V12z; M0 4 V28 H4 V4z; M0 12 V20 H4 V12z; M0 12 V20 H4 V12z" dur="1.2s" repeatCount="indefinite" begin="0.8" keytimes="0;.2;.5;1" keySplines="0.2 0.2 0.4 0.8;0.2 0.6 0.4 0.8;0.2 0.8 0.4 0.8" calcMode="spline" />
-			</path>
-		    </svg>
-
-
-		</div>
-		<ul ng-show="track_data">
-		    <li ng-repeat="track in track_data">
-		      <a href style="display:block; padding:0.3em 1em" ng-click="buy_tickets(track.event)">
-			{{track.name}}<br/>
-			{{track.artist}} @ {{track.event.venue.name}}
-		      </a>
-		    </li>
-		</ul>
-	    </div>
-	    <div style="padding:6em 1em 1em 1em">&nbsp;</div>
-	    <div ng-hide="is_app" style="display:block; width:130px; margin: 1em auto" >
-	      <a href="https://play.google.com/store/apps/details?id=com.millstonecw.musictonight">
-		<img alt="Get it on Google Play" width="129" height="45" src="https://developer.android.com/images/brand/en_generic_rgb_wo_45.png" />
-	      </a>
-	    </div>
-	    <div style="padding:1em; text-align:center; font-size:80%">
-		<div>
-		    <span>
-			I'm new at this.  Chat with me! - musictonight@millstonecw.com
-		    </span>
-		</div>
-		<div style="padding-top:0.6em">
-		    <a href="http://www.spotify.com"><img height="33" width="110" src="img/spotify-logo-primary-horizontal-light-background-rgb2.png" style="position:relative; top:9px"/></a>
-		    and
-		    <a href="http://seatgeek.com"><img height="31" width="102" src="img/seatgeek102x31.png" style="position:relative; top:13px;"/></a>
-		    help me do this.
-		</div>
-	    </div>
-	</div>
     </body>
 </html>
