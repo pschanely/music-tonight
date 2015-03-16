@@ -164,7 +164,7 @@
 		  </div>
 		  &nbsp;
 		  <div>
-		    <input ng-model="opts.maxmiles" type="range" min="5" max="200" step="10" />
+		    <input ng-model="opts.maxmiles" type="range" min="5" max="205" step="10" />
 		    <span class="optionlabel">up to {{opts.maxmiles}} {{(lang=='en-US') ? 'miles' : 'km'}} away</span>
 		  </div>
 		  &nbsp;
@@ -255,6 +255,7 @@
 		      <a href style="display:block; padding:0.3em 1em" ng-click="buy_tickets(track.event)">
 			{{track.name}}<br/>
 			{{track.artist}} @ {{track.event.venue.name}}
+			{{(opts.daysout > 1) ? track.event.datetime_local.substring(5, 10) : ''}}
 		      </a>
 		    </li>
 		</ul>
