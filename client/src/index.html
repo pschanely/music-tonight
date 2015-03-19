@@ -252,7 +252,7 @@
 		</div>
 		<ul ng-show="track_data">
 		    <li ng-repeat="track in track_data">
-		      <a href style="display:block; padding:0.3em 1em" ng-click="buy_tickets(track.event)">
+		      <a ng-href="{{track.event.url}}" style="display:block; padding:0.3em 1em" ng-click="buy_tickets(track.event)">
 			{{track.name}}<br/>
 			{{track.artist}} @ {{track.event.venue.name}}
 			{{(opts.daysout > 1) ? track.event.datetime_local.substring(5, 10) : ''}}
@@ -517,10 +517,9 @@
 	       };
 	       
 	       $scope.buy_tickets = function(event) {
+		 ga('send', 'event', 'goto_ticket');
 		 if (is_app) {
 		   cordova.exec(null, null, "InAppBrowser", "open", [event.url, "_system"]);
-		 } else {
-		   window.location = event.url;
 		 }
 	       }
 	       
