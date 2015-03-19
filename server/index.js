@@ -206,10 +206,13 @@ function spotifyArtist(performer) {
     );
 }
 
-function getMusic(eventOptions, artistStore) {
+function getMusic(eventOptions, trackOptions, artistStore) {
+    var maxTracksPerArtist = trackOptions.maxTracksPerArtist;
     return fetchEvents(eventOptions, 2).then(function(performer_map) {
 	var playlistName = formatDate(new Date()).substring(0, 10) + '-music-tonight';
 	var performers = Object.keys(performer_map);
+	var tracksPerArtist = Math.round(16.0 / performers.length);
+	tracksPerArtist = Math.max(1, Math.min(maxTracksPerArtist, tracksPerArtist));
 	var promises = performers.map(function(performer) {
 	    return artistStore.get(performer).then(function(data) {
 		if (data) {
@@ -228,11 +231,17 @@ function getMusic(eventOptions, artistStore) {
 			track.name = track.name.split(' ', 6).join(' ') + '...';
 		    }
 		});
-		return artist.tracks[0];
+		return artist.tracks.slice(0, tracksPerArtist);
 	    });
 	});
-	return Q.all(promises).then(function(track_data){
-	    return {name: playlistName, tracks:track_data.filter(function(x){return x;})};
+	return Q.all(promises).then(function(track_data) {
+	    var tracks = [];
+	    track_data.forEach(function(result) {
+		if (result) {
+		    result.forEach(function(track){ tracks.push(track); });
+		}
+	    });
+	    return {name: playlistName, tracks:tracks};
 	});
     });
 }
@@ -299,7 +308,10 @@ function makeServer(artistStore) {
 	    daysout: daysout,
 	    maxmiles: maxmiles
 	};
-	return getMusic(eventOptions, artistStore).then(function(result) {
+	var trackOptions = {
+	    maxTracksPerArtist: (req.params.maxartisttracks) ? parseInt(req.params.maxartisttracks) : 2
+	};
+	return getMusic(eventOptions, trackOptions, artistStore).then(function(result) {
 	    result.language = language;
 	    return result;
 	});

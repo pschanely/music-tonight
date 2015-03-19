@@ -80,7 +80,7 @@
 	 }
 	 .optionlabel {
 	   display: inline-block;
-	   width: 10em;
+	   width: 12em;
 	   text-align: left;
 	 }
 	 #options.ng-hide-remove {
@@ -166,6 +166,11 @@
 		  <div>
 		    <input ng-model="opts.maxmiles" type="range" min="5" max="205" step="10" />
 		    <span class="optionlabel">up to {{opts.maxmiles}} {{(lang=='en-US') ? 'miles' : 'km'}} away</span>
+		  </div>
+		  &nbsp;
+		  <div>
+		    <input ng-model="opts.maxartisttracks" type="range" min="1" max="5" step="1" />
+		    <span class="optionlabel">up to {{opts.maxartisttracks}} tracks per artist</span>
 		  </div>
 		  &nbsp;
 		  <div>
@@ -423,7 +428,7 @@
 	       $scope.is_app = is_app;
 	       $scope.just_authed = function() { return mtSpotify.isAuthed(); }
 	       $scope.opts = (localStorage.getItem('opts')) ? JSON.parse(localStorage.getItem('opts')) : {};
-	       var defaults = {daysout:1, maxmiles:125, loctext:''};
+	       var defaults = {daysout:1, maxmiles:125, loctext:'', maxartisttracks:2};
 	       for (var k in defaults) {
 		 if ($scope.opts[k] === undefined) {
 		   $scope.opts[k] = defaults[k];
@@ -467,6 +472,7 @@
 		 } else if (coords) {
 		   uri += '&latlon=' + coords.latitude + ',' + coords.longitude;
 		 }
+		 uri += '&maxartisttracks=' + $scope.opts.maxartisttracks;
 		 return $http.get(uri).then(
 		   function(response) {
 		     g_name = response.data.name;
