@@ -178,11 +178,13 @@ function fetchEvents(opts, range) {
 	console.log('results at range ', range, ' : ', num_events, ' (target is:', target_count, ')');
 	if (range >= maxmiles || num_events >= target_count) {
 	    var performer_map = {};
+	    events = events.slice(0, 40);
 	    events.forEach(function(event) {
 		event.timestring = '';
 		if (event.datetime_local) {
 		    event.timestring = event.datetime_local.substring(11,16);
 		}
+		event.performers = event.performers.slice(0, 3);
 		event.performers.forEach(function(performer) {
 		    performer_map[performer.name]=event;
 		});
