@@ -115,29 +115,65 @@ function fetchEvents(opts, range) {
     var latlon = opts.latlon;
     var daysout = opts.daysout;
     var maxmiles = opts.maxmiles;
+    range = (range > maxmiles) ? maxmiles : range;
     var dt = new Date();
-    var startdt = formatDate(new Date(dt.getTime() - 4 * 3600 * 1000));
-    var enddt = formatDate(new Date(dt.getTime() + (daysout * 24 - 6) * 3600 * 1000));
+    var startdt = formatDate(new Date(dt.getTime() - 2 * 3600 * 1000));
+    var enddt = formatDate(new Date(dt.getTime() + ((daysout - 1) * 24 - 2) * 3600 * 1000));
 
     console.log('input', zipcode, opts.clientIp, latlon, startdt, enddt);
-    var uri = config.SEATGEEK_EVENTS_PREFIX + '&taxonomies.name=concert&sort=score.desc&per_page=50&range='+range+'mi&datetime_utc.gte='+startdt+'&datetime_utc.lt='+enddt;
-    if (latlon) {
-	var parts = latlon.split(',');
-	uri += '&lat=' + parts[0] + '&lon=' + parts[1];
+    var promise;
+    if (true) {
+	var uri = 'http://api.bandsintown.com/events/search?app_id=musictonight.millstonecw.com&format=json&per_page=50';
+	if (latlon) {
+	    uri += '&location=' + latlon;
+	} else {
+	    if (opts.clientIp !== '127.0.0.1') {
+		uri += '&location=' + opts.clientIp;
+	    } else {
+		uri += '&location=40.7436300,-73.9906270';
+	    }
+	}
+	uri += '&radius=' + range;
+	uri += '&date=' + startdt.substring(0, 10) + ',' + enddt.substring(0, 10);
+	console.log(uri);
+	promise = http({method:'get', uri:uri, json:true}).then(function(events) {
+	    if (events.errors) {
+		throw new Error(events.errors);
+	    }
+	    events.forEach(function(event) {
+		event.timestring = event.datetime.substring(11,16);
+		event.datetime_local = event.datetime;
+		event.performers = event.artists;
+		delete event.artists;
+	    });
+	    return events;
+	});
     } else {
-	var geoip = (zipcode !== undefined && zipcode !== '00000') ? zipcode : opts.clientIp;
-	uri += '&geoip=' + geoip;
+	var uri = config.SEATGEEK_EVENTS_PREFIX + '&taxonomies.name=concert&sort=score.desc&per_page=50&range='+range+'mi&datetime_utc.gte='+startdt+'&datetime_utc.lt='+enddt;
+	if (latlon) {
+	    var parts = latlon.split(',');
+	    uri += '&lat=' + parts[0] + '&lon=' + parts[1];
+	} else {
+	    var geoip = (zipcode !== undefined && zipcode !== '00000') ? zipcode : opts.clientIp;
+	    uri += '&geoip=' + geoip;
+	}
+	promise = http({method:'get', uri:uri, json:true}).then(function(response) {
+	    response.events.forEach(function(event) {
+		event.timestring = '';
+		if (event.datetime_local) {
+		    event.timestring = event.datetime_local.substring(11,16);
+		}
+	    });
+	    return response.events;
+	});
     }
-    if (range > maxmiles) {
-	range = maxmiles;
-    }
-    return http({method:'get', uri:uri, json:true}).then(function(response) {
-	var num_events = response.events.length;
+    return promise.then(function(events) {
+	var num_events = events.length;
 	var target_count = Math.min(50, Math.max(4, Math.round(600 / range)));
 	console.log('results at range ', range, ' : ', num_events, ' (target is:', target_count, ')');
-	if (range == maxmiles || num_events >= target_count) {
+	if (range >= maxmiles || num_events >= target_count) {
 	    var performer_map = {};
-	    response.events.forEach(function(event) {
+	    events.forEach(function(event) {
 		event.timestring = '';
 		if (event.datetime_local) {
 		    event.timestring = event.datetime_local.substring(11,16);
@@ -211,7 +247,7 @@ function getMusic(eventOptions, trackOptions, artistStore) {
     return fetchEvents(eventOptions, 2).then(function(performer_map) {
 	var playlistName = formatDate(new Date()).substring(0, 10) + '-music-tonight';
 	var performers = Object.keys(performer_map);
-	var tracksPerArtist = Math.round(16.0 / performers.length);
+	var tracksPerArtist = Math.round(22.0 / performers.length);
 	tracksPerArtist = Math.max(1, Math.min(maxTracksPerArtist, tracksPerArtist));
 	var promises = performers.map(function(performer) {
 	    return artistStore.get(performer).then(function(data) {
