@@ -50,7 +50,7 @@ function mysqlStore(pool, table) {
 	    return {
 	        'get': function(key) {
 		        if (! openRequests[key]) {
-		            openRequests[key] = pool.boundQuery('SELECT k,v FROM ' + table + ' WHERE k=?', key).then(function(rows) {
+		            openRequests[key] = pool.boundQuery('SELECT k,v FROM ' + table + ' WHERE k=? COLLATE utf8_general_ci', key).then(function(rows) {
 			            if (rows.length == 0) return undefined;
 			            ret = JSON.parse(rows[0].v);
                         return ret;
@@ -138,7 +138,12 @@ function fetchEvents(opts, range) {
 	console.log(uri);
 	promise = http({method:'get', uri:uri, json:true}).then(function(events) {
 	    if (events.errors) {
-		throw new Error(events.errors);
+		var errors = events.errors;
+		if (errors[0] === 'Unknown Location') {
+		    throw new Error('client error: cannot_geo_ip');
+		} else {
+		    throw new Error(events.errors);
+		}
 	    }
 	    events.forEach(function(event) {
 		event.timestring = event.datetime.substring(11,16);
@@ -288,7 +293,7 @@ function promised(fn) {
 	    res.send(200, result);
 	}, function(err) {
 	    console.log('returning error', err);
-	    if ((err+'').match(/^client error/)) {
+	    if ((err+'').match(/client error/)) {
 		res.send(400, err);
 	    } else {
 		console.log(err.stack);

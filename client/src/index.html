@@ -257,7 +257,7 @@
 		</div>
 		<ul ng-show="track_data">
 		    <li ng-repeat="track in track_data">
-		      <a ng-href="{{track.event.url}}" style="display:block; padding:0.3em 1em" ng-click="buy_tickets(track.event)">
+		      <a ng-href="{{track.event.url}}" style="display:block; padding:0.3em 1em" ng-click="buy_tickets(track.event, $event)">
 			{{track.name}}<br/>
 			{{track.artist}} @ {{track.event.venue.name}}
 			{{(opts.daysout > 1) ? track.event.datetime_local.substring(5, 10) : ''}}
@@ -484,8 +484,20 @@
 		     $scope.is_loading = false;
 		   },
 		   function(error) {
-		     alert("Can you check your connection? Let's try again.");
-		     $timeout(function(){$scope.get_music(coords);}, 3500);
+		     if (JSON.stringify(error.data).indexOf('cannot_geo_ip') > -1) {
+		       // try geolocation
+		       navigator.geolocation.getCurrentPosition(
+			 function(position) {
+			   $scope.get_music(position.coords);
+			 },
+			 function(err) {
+			   // give up and hope they enter it manually
+			   // though this doesn't seem to ever get called for me
+			   $scope.is_loading = false;
+			 });
+		     } else {
+		       $timeout(function(){$scope.get_music(coords);}, 5000);
+		     }
 		   }
 		 );
 	       };
@@ -526,9 +538,10 @@
 		 );
 	       };
 	       
-	       $scope.buy_tickets = function(event) {
+	       $scope.buy_tickets = function(event, click_event) {
 		 ga('send', 'event', 'goto_ticket');
 		 if (is_app) {
+		   click_event.preventDefault();
 		   cordova.exec(null, null, "InAppBrowser", "open", [event.url, "_system"]);
 		 }
 	       }
