@@ -335,6 +335,7 @@ function makeServer(artistStore) {
 	    req.connection.remoteAddress || 
 	    req.socket.remoteAddress ||
 	    req.connection.socket.remoteAddress;
+	clientIp = clientIp.split(',')[0];
 
 	var language = 'en-US';
 	var acceptLanguages = req.headers['accept-language'];
