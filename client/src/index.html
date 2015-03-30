@@ -35,6 +35,12 @@
 	   font-size: 100%;
 	   font-family: Arial, Helvetica, sans-serif;
 	 }
+	 form {
+	   display:inline-block;
+	 }
+	 input {
+	   display:inline-block;
+	 }
 	 input:focus, button:focus, a:focus {
 	   outline: 0;
 	   background: #fff !important;
@@ -125,6 +131,9 @@
 	 li:last-child {
 	   border-bottom: 1px solid #ddd;
 	 }
+	 .event_date {
+	   font-size: 80%
+	 }
 	 @media (min-width: 701px) {
 	   #allcontent {
 	     display:block;
@@ -160,7 +169,7 @@
 		  </div>
 		  &nbsp;
 		  <div>
-		    <input ng-model="opts.daysout" type="range" min="1" max="7" step="1" />
+		    <input ng-model="opts.daysout" type="range" min="1" max="14" step="1" />
 		    <span class="optionlabel">up to {{opts.daysout}} day{{(opts.daysout>1)?'s':''}} from now</span>
 		  </div>
 		  &nbsp;
@@ -172,6 +181,13 @@
 		  <div>
 		    <input ng-model="opts.maxartisttracks" type="range" min="1" max="5" step="1" />
 		    <span class="optionlabel">up to {{opts.maxartisttracks}} tracks per artist</span>
+		  </div>
+		  &nbsp;
+		  <div>
+		    <select ng-model="opts.service">
+		      <option value="spotify">Spotify</option>
+		      <option value="rdio">Rdio</option>
+		    </select>
 		  </div>
 		  &nbsp;
 		  <div>
@@ -210,6 +226,10 @@
 			    I make spotify playlists of artists playing near you, tonight.
 			</div>
 			&nbsp;
+			<form id="start_auth_form" action="{{svc_auth_uri}}" method="post">
+			  <input type="hidden" name="track_keys" value="{{track_artist_json()}}" />
+			  <input type="hidden" name="service" value="{{opts.service}}" />
+			</form>
 			<div ng-show="track_data && !is_loading" class="bouncy">
 			  <a href="#" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); showOptions = true">
 			    <svg xmlns="http://www.w3.org/2000/svg" version="1.1"  width="16" height="16" viewBox="0 0 128 128">
@@ -219,7 +239,8 @@
 			    </svg>
 			    options
 			  </a>
-			  <a href="#" style="display:inline-block; margin-left:auto; margin-right:auto" class="outlined big" ng-click="$event.preventDefault(); make_playlist()">Make Playlist</a>
+			  <a href="#" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); make_playlist()">Make Playlist</a>
+
 			</div>
 		    </div>
 		    <div ng-show="just_authed()">
@@ -258,10 +279,10 @@
 		</div>
 		<ul ng-show="track_data">
 		    <li ng-repeat="track in track_data">
-		      <a ng-href="{{track.event.url}}" style="display:block; padding:0.3em 1em" ng-click="buy_tickets(track.event, $event)">
+		      <a ng-href="{{track.event.url}}" style="display:block; padding:0.4em 1em" ng-click="buy_tickets(track.event, $event)">
 			{{track.name}}<br/>
-			{{track.artist}} @ {{track.event.venue.name}}
-			{{(opts.daysout > 1) ? track.event.datetime_local.substring(5, 10) : ''}}
+			{{track.artist}} &nbsp; @ {{track.event.venue.name}}
+			&nbsp;<span class="event_date">({{(opts.daysout > 1) ? track.event.datestring : ''}})</span>
 		      </a>
 		    </li>
 		</ul>
@@ -301,6 +322,7 @@
 	   var server = (is_app) ? 'APP_SERVER_URL' : base;
 	   var get_playlist_uri = server + '/api/playlist';
 	   var platform = 'web';
+
 	   if (is_app) {
 	     platform = (navigator.userAgent.match(/iPad/i))  == "iPad" ? "ios" : (navigator.userAgent.match(/iPhone/i))  == "iPhone" ? "ios" : (navigator.userAgent.match(/Android/i)) == "Android" ? "android" : "unknown_app";
 	   }
@@ -339,11 +361,12 @@
 	   function parse_hash_query(url) {
 	     var args = {};
 	     var hash = url.replace(/^[^\#]*#/g, '');
+	     if (! hash) return null;
 	     var all = hash.split('&');
 	     all.forEach(function(keyvalue) {
 	       var idx = keyvalue.indexOf('=');
 	       var key = keyvalue.substring(0, idx);
-	       var val = keyvalue.substring(idx + 1);
+	       var val = decodeURIComponent(keyvalue.substring(idx + 1));
 	       args[key] = val;
 	     });
 	     return args;
@@ -353,87 +376,22 @@
 	     document.write('<script type="text/javascript" src="cordova.js"><\/script>');
 	   }
 	   
-	   var doLogin = function(callback) {
-	     var url = 'https://accounts.spotify.com/authorize?client_id=' + client_id +
-		       '&response_type=token' +
-		       '&scope=playlist-read-private%20playlist-modify%20playlist-modify-private' +
-		       '&redirect_uri=' + redirect_uri;
-	     localStorage.setItem('createplaylist-tracks', JSON.stringify(g_tracks));
-	     localStorage.setItem('createplaylist-name', g_name);
-	     if (is_app) {
-	       var authWindow = window.open(url, '_blank', 'location=no,toolbar=no');
-	       function loadstart_handler(e) {
-		 var cburl = e.url;
-		 if (cburl == url) { // ignore inital load
-		   return;
-		 }
-		 var args = parse_hash_query(cburl);
-		 var code = args.access_token;
-		 if (code) {
-		   authWindow.close();
-		 }
-		 callback(code);
-	       }
-	       authWindow.addEventListener('loadstart', loadstart_handler);
-	     } else {
-	       window.location = url;
-	     }
-	   }
-	     
 	   var module = angular.module('musictonight', ['ngAnimate']);
 	   
 	   module.config(['$compileProvider', function($compileProvider) {
 	     $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|ftp|mailto|spotify):/);
 	   }]);
 	   
-	   module.service('mtSpotify', ['$http', '$q', function($http, $q) {
-	     var auth_args = {};
-	     this.getUsername = function() {
-	       var url = 'https://api.spotify.com/v1/me';
-	       return $http.get(url, {headers: {'Authorization': 'Bearer ' + auth_args['access_token']}, json:true}).
-				then(function(r) {return r.data.id;});
-	     };
-	     this.createPlaylist = function(username, name) {
-	       var url = 'https://api.spotify.com/v1/users/' + username + '/playlists';
-	       var data = {'name': name, 'public': false};
-	       var headers = {
-		 'Authorization': 'Bearer ' + auth_args['access_token'],
-		 'Content-Type': 'application/json'
-	       }
-	       return $http.post(url, data, {json:true, headers: headers}).
-				 then(function(r) {return r.data.id;});
-	     };
-	     this.addTracksToPlaylist = function(username, playlist, tracks) {
-	       var url = 'https://api.spotify.com/v1/users/' + username +
-			 '/playlists/' + playlist +
-			 '/tracks';
-	       var headers = {
-		 'Authorization': 'Bearer ' + auth_args['access_token'],
-		 'Content-Type': 'application/json'
-               };
-	       return $http.post(url, tracks, {json:true, headers: headers}).
-				 then(function(r) {return r.data.id;});
-	     };
-	     this.isAuthed = function() {
-	       return (typeof(auth_args['access_token']) !== 'undefined');
-	     };
-	     this.parseUrl = function(url) {
-	       auth_args = parse_hash_query(url);
-	     }
-	     this.setAccessCode = function(code) {
-	       auth_args['access_token'] = code;
-	     };
-	   }]);
-	   
 	   module.controller('mtController', [
-	     '$scope', '$http', '$q', '$timeout', 'mtSpotify', 
-	     function($scope, $http, $q, $timeout, mtSpotify) {
+	     '$scope', '$http', '$q', '$timeout',
+	     function($scope, $http, $q, $timeout) {
 	       $scope.lang = navigator.languages? navigator.languages[0] : (navigator.language || navigator.userLanguage);
-	       mtSpotify.parseUrl(window.location.hash);
+	       var playlist_links = parse_hash_query(window.location.hash);
+	       console.log('pll', playlist_links);
 	       $scope.is_app = is_app;
-	       $scope.just_authed = function() { return mtSpotify.isAuthed(); }
+	       $scope.just_authed = function() { return playlist_links; }
 	       $scope.opts = (localStorage.getItem('opts')) ? JSON.parse(localStorage.getItem('opts')) : {};
-	       var defaults = {daysout:1, maxmiles:125, loctext:'', maxartisttracks:2};
+	       var defaults = {daysout:1, maxmiles:125, loctext:'', maxartisttracks:2, service:'spotify'};
 	       for (var k in defaults) {
 		 if ($scope.opts[k] === undefined) {
 		   $scope.opts[k] = defaults[k];
@@ -467,6 +425,7 @@
 		 ga('send', 'event', 'loading_playlist');
 		 var uri = get_playlist_uri;
 		 uri += '?daysout=' + $scope.opts.daysout;
+		 uri += '&service=' + $scope.opts.service;
 		 var maxmiles = $scope.opts.maxmiles;
 		 if ($scope.lang != 'en-US') {
 		   maxmiles = Math.round(maxmiles * 0.621371);
@@ -497,46 +456,28 @@
 			   $scope.is_loading = false;
 			 });
 		     } else {
+		       if (error.status >= 500 && error.status < 600) {
+			 alert("Uh oh; I'm not feeling well. Could you come back a little later?");
+		       }
 		       $timeout(function(){$scope.get_music(coords);}, 5000);
 		     }
 		   }
 		 );
 	       };
 	       
+	       $scope.track_artist_json = function() {
+		 if ($scope.track_data) {
+		   var artists = $scope.track_data.map(function(track){ return track.key; });
+		   return JSON.stringify(artists);
+		 } else {
+		   return '[]';
+		 }
+	       };
+	       $scope.svc_auth_uri = server + '/api/music_svc_auth';
 	       $scope.make_playlist = function() {
 		 ga('send', 'event', 'start_auth');
-		 g_tracks = $scope.track_data;
-		 doLogin(function(code) {
-		   if (code) {
-		     mtSpotify.setAccessCode(code);
-		     $scope.create_playlist();
-		   }
-		 });
-	       };
-	       
-	       $scope.create_playlist = function() {
-		 ga('send', 'event', 'finish_auth');
-		 var playlist_name = localStorage.getItem('createplaylist-name');
-		 var playlist_tracks = JSON.parse(localStorage.getItem('createplaylist-tracks'));
-		 $scope.is_loading = true;
-		 return mtSpotify.getUsername().then(function(username) {
-		   return mtSpotify.createPlaylist(username, playlist_name).then(function(playlist_id) {
-		     $scope.playlist_http = 'https://play.spotify.com/user/'+username+'/playlist/'+playlist_id;
-		     $scope.playlist_uri = 'spotify:user:'+username+':playlist:'+playlist_id;
-		     var uris = playlist_tracks.map(function(track){return track.uri;});
-		     return mtSpotify.addTracksToPlaylist(username, playlist_id, uris);
-		   });
-		 }).then(
-		   function() {
-		     $scope.track_data = playlist_tracks;
-		     ga('send', 'event', 'created_playlist');
-		     $scope.is_loading = false;
-		   },
-		   function() {
-		     alert("Sorry!  I'm having trouble talking to Spotify.");
-		     $scope.create_playlist();
-		   }
-		 );
+		 var form = document.getElementById('start_auth_form');
+		 form.submit();
 	       };
 	       
 	       $scope.buy_tickets = function(event, click_event) {
@@ -553,10 +494,10 @@
 		   var scheme = {'ios':'spotify://', 'android':'com.spotify.music'}[platform];
 		   appAvailability.check(
 		     scheme, 
-		     function() { window.location = $scope.playlist_uri; },
-		     function() { window.location = $scope.playlist_http; });
+		     function() { window.location = playlist_links.app; },
+		     function() { window.location = playlist_links.http; });
 		 } else {
-		   window.location = $scope.playlist_http;
+		   window.location = playlist_links.http;
 		 }
 	       };
 	       
@@ -565,11 +506,10 @@
 		 localStorage.setItem('opts', JSON.stringify($scope.opts));
 	       }
 	       
-	       if ($scope.just_authed()) {
-		 $scope.create_playlist();
-	       } else {
+	       if (! $scope.just_authed()) {
 		 if (is_app) {
 		   document.addEventListener("deviceready", function() {
+		     scope.is_loading = true;
 		     navigator.geolocation.getCurrentPosition(
 		       function(position) {
 			 $scope.get_music(position.coords);
