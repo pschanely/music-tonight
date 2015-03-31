@@ -5,7 +5,12 @@ var frep = require('gulp-frep');
 var imagemin = require('gulp-imagemin');
 var mainBowerFiles = require('main-bower-files');
 var print = require('gulp-print');
-
+var inline = require('gulp-inline');
+var uglify = require('gulp-uglify');
+var minifyCss = require('gulp-minify-css');
+var inlinesource = require('gulp-inline-source');
+var inlineimg = require('gulp-inline-image-html');
+ 
 var config = {}
 for(var fileName in configFiles) {
     var configObj = configFiles[fileName];
@@ -22,14 +27,15 @@ var config_patterns = [
 gulp.task('default', function() {
 
     gulp.src('./src/*.html')
+        .pipe(inlinesource({compress:true}))
+        //.pipe(inlineimg('src'))
 	.pipe(frep(config_patterns))
 	.pipe(gulp.dest('./dist'));
 
-    gulp.src(mainBowerFiles({paths:'./src', debugging:true}), { base:'./src/bower_components'})
+    gulp.src(mainBowerFiles({paths:'./src', debugging:false}), { base:'./src/bower_components'})
 	.pipe(gulp.dest('./dist/bower_components'));
 
     gulp.src('./src/img/*')
-        .pipe(imagemin())
         .pipe(gulp.dest('./dist/img'));
 
 });

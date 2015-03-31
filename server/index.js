@@ -144,6 +144,14 @@ function make_rdio_api_fn(token, token_secret) {
     };
 }
 
+function isRealVenue(venue) {
+    if (venue.name.length < 12) return true;
+    if (venue.name.match(/radio/i) || venue.name.length > 120) {
+	return false;
+    }
+    return true;
+}
+
 function make_spotify_api_fn(access_token) {
     return {
 	'getUsername': function() {
@@ -245,10 +253,12 @@ function fetchEvents(opts, range) {
 	    var performer_map = {};
 	    events = events.slice(0, 40);
 	    events.forEach(function(event) {
-		event.performers = event.performers.slice(0, 3);
-		event.performers.forEach(function(performer) {
-		    performer_map[performer.name]=event;
-		});
+		if (isRealVenue(event.venue)) {
+		    event.performers = event.performers.slice(0, 3);
+		    event.performers.forEach(function(performer) {
+			performer_map[performer.name]=event;
+		    });
+		}
 	    });
 	    return performer_map;
 	} else {
@@ -361,11 +371,12 @@ function rdioArtist(performer) {
 }
 
 function makePlaylist(service, authInfo, playlistTitle, trackKeys) {
-    var access_token = authInfo.token;
+    var access_token = authInfo.access_token;
     if (service == 'spotify') {
 	var api = make_spotify_api_fn(access_token);
 	return api.getUsername().then(function(username) {
-	    return api.createPlaylist(username, playlist_title).then(function(playlist_id) {
+	    if (username === undefined) throw new Error('access_token not working');
+	    return api.createPlaylist(username, playlistTitle).then(function(playlist_id) {
 		return urls = {http: 'https://play.spotify.com/user/'+username+'/playlist/'+playlist_id,
 			       app: 'spotify:user:'+username+':playlist:'+playlist_id};
 		var uris = playlist_tracks.map(function(track){return track.uri;}).slice(0, 99);
@@ -387,6 +398,8 @@ function makePlaylist(service, authInfo, playlistTitle, trackKeys) {
 		return {'http': 'http://www.rdio.com' + result.url};
 	    }
 	);
+    } else {
+	throw new Error('Invalid service');
     }
 }
 
@@ -576,9 +589,8 @@ function makeServer(artistStore) {
 		json: true
 	    };
 	    promise = http(authOptions).then(function(response) {
-		return response.access_token;
-	    }).then(function(access_token) {
-		return makePlaylist('spotify', {access_token:access_token}, playlist_title, trackKeys);
+		console.log('auth response ', response);
+		return makePlaylist('spotify', {'access_token': response.access_token}, playlist_title, trackKeys);
 	    });
 
 	    
@@ -609,7 +621,7 @@ function makeServer(artistStore) {
 
 mysqlStore(pool, 'artists').then(function(artistStore) {
     var server = makeServer(artistStore);
-    server.listen(11809, function() {
+    server.listen(11810, function() {
 	console.log('%s listening at %s', server.name, server.url);
     });
 }).done();
