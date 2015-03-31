@@ -69,31 +69,15 @@ function mysqlStore(pool, table) {
 		        }
 		        return openRequests[key];
 	        },
-	        'iter': function(callback) {
-		        var deferred = Q.defer();
-		        var cb = function(err, conn) {
-		            if (err) {
-			            deferred.reject(err);
-			            return;
-		            }
-		            var query = conn.query('SELECT k,v from ' + table);
-		            var hadError = false;
-		            query.on('error', function(err) {
-			            hadError=true;
-			            deferred.reject(err);
-		            });
-		            query.on('end', function() {
-			            if (! hadError) deferred.resolve();
-			            conn.release();
-		            });
-		            query.on('result', function(row) {
-			            conn.pause();
-			            Q.fcall(callback, row.k, row.v).fin(function(){conn.resume();}).done();
-		            });
-		        };
-		        pool.getConnection(cb);
-		        return deferred.promise;
-	        },
+		'mget': function(keys) {
+		    if (keys.length === 0) return Q.fcall(function(){return {};});
+		    var clauses = keys.map(function(k){return 'k=?';}).join(' OR ');
+		    return pool.boundQuery('SELECT k,v FROM ' + table + ' WHERE '+clauses+' COLLATE utf8_general_ci', keys).then(function(rows) {
+			var result = {};
+			rows.forEach(function(row){result[row.k] = JSON.parse(row.v);});
+			return result;
+		    });
+		},
 	        'set': function(key, val) {
 		        var sql = 'INSERT INTO ' + table + ' (k,v) VALUES (?,?) ON DUPLICATE KEY UPDATE v=VALUES(v)';
 		        return pool.boundQuery(sql, [key, JSON.stringify(val)]);
@@ -370,9 +354,39 @@ function rdioArtist(performer) {
     } else {
 	rdio_cps.ct += 1;
 	// aim for 5 per second(ish)
-	var delay = ((rdio_cps.ct - 1) / 5) * 1000
+	var delay = ((rdio_cps.ct - 1) / 4) * 1000
 	console.log('rdio throttle kick-in', delay);
 	return Q.delay(delay).then(make_promise);
+    }
+}
+
+function makePlaylist(service, authInfo, playlistTitle, trackKeys) {
+    var access_token = authInfo.token;
+    if (service == 'spotify') {
+	var api = make_spotify_api_fn(access_token);
+	return api.getUsername().then(function(username) {
+	    return api.createPlaylist(username, playlist_title).then(function(playlist_id) {
+		return urls = {http: 'https://play.spotify.com/user/'+username+'/playlist/'+playlist_id,
+			       app: 'spotify:user:'+username+':playlist:'+playlist_id};
+		var uris = playlist_tracks.map(function(track){return track.uri;}).slice(0, 99);
+		return mtSpotify.addTracksToPlaylist(username, playlist_id, uris).then(function() {
+		    return urls;
+		});
+	    });
+	});
+    } else if (service == 'rdio') {
+	var access_token_secret = authInfo.secret;
+        var api = make_rdio_api_fn(access_token, access_token_secret);
+	var payload = {'method': 'createPlaylist', 
+		       'name': playlistTitle, 
+		       'description': 'A playlist of local artists playing near you, now.',
+		       'isPublished': 'false',
+		       'tracks': trackKeys.join(',')};
+	return api(payload).then(
+	    function(result) {
+		return {'http': 'http://www.rdio.com' + result.url};
+	    }
+	);
     }
 }
 
@@ -380,16 +394,18 @@ function rdioArtist(performer) {
 function getMusic(eventOptions, trackOptions, artistStore) {
     var maxTracksPerArtist = trackOptions.maxTracksPerArtist;
     return fetchEvents(eventOptions, 2).then(function(performer_map) {
+	var service = trackOptions.service;
 	var playlistName = formatDate(new Date()).substring(0, 10) + '-music-tonight';
 	var performers = Object.keys(performer_map);
 	var tracksPerArtist = Math.round(22.0 / performers.length);
+	var performerCacheKeys = performers.map(function(p){ return service+':'+p; });
 	tracksPerArtist = Math.max(1, Math.min(maxTracksPerArtist, tracksPerArtist));
-	var promises = performers.map(function(performer) {
-	    var service = trackOptions.service;
-            var artistCacheKey = service+':'+performer;
-            return artistStore.get(artistCacheKey).then(function(data) {
-		if (data) {
-		    return JSON.parse(data);
+	return artistStore.mget(performerCacheKeys).then(function(cacheResults) {
+	    var promises = performers.map(function(performer) {
+		var artistCacheKey = service + ':' + performer;
+		var cached = cacheResults[artistCacheKey];
+		if (cached !== undefined) {
+		    return Q.fcall(function(){return JSON.parse(cached);});
 		} else {
                     var fetchfn = {'spotify': spotifyArtist, 'rdio': rdioArtist}[service];
                     return fetchfn(performer).then(function(result){
@@ -397,25 +413,22 @@ function getMusic(eventOptions, trackOptions, artistStore) {
 			return result;
 		    });
 		}
-	    }).then(function(artist){
-		if (! artist) { return null; }
-		artist.tracks.forEach(function(track) {
-		    track.event = performer_map[performer];
-		    if (track.name.split(' ').length > 6) {
-			track.name = track.name.split(' ', 6).join(' ') + '...';
-		    }
+	    });
+	    return Q.all(promises).then(function(artists) {
+		var tracks = [];
+		artists.forEach(function(artist) {
+		    if (! artist) {return;}
+		    var event = performer_map[artist.name];
+		    artist.tracks.slice(0, tracksPerArtist).forEach(function(track){
+			track.event = event;
+			if (track.name.split(' ').length > 6) {
+			    track.name = track.name.split(' ', 6).join(' ') + '...';
+			}
+			tracks.push(track);
+		    });
 		});
-		return artist.tracks.slice(0, tracksPerArtist);
+		return {name: playlistName, tracks:tracks};
 	    });
-	});
-	return Q.all(promises).then(function(track_data) {
-	    var tracks = [];
-	    track_data.forEach(function(result) {
-		if (result) {
-		    result.forEach(function(track){ tracks.push(track); });
-		}
-	    });
-	    return {name: playlistName, tracks:tracks};
 	});
     });
 }
@@ -562,45 +575,17 @@ function makeServer(artistStore) {
 		method: 'post',
 		json: true
 	    };
-	    console.log('authoptions', authOptions);
 	    promise = http(authOptions).then(function(response) {
-		console.log('response', response);
 		return response.access_token;
 	    }).then(function(access_token) {
-		var api = make_spotify_api_fn(access_token);
-		return api.getUsername().then(function(username) {
-		    return api.createPlaylist(username, playlist_title).then(function(playlist_id) {
-			return urls = {http: 'https://play.spotify.com/user/'+username+'/playlist/'+playlist_id,
-				       app: 'spotify:user:'+username+':playlist:'+playlist_id};
-			var uris = playlist_tracks.map(function(track){return track.uri;});
-			return mtSpotify.addTracksToPlaylist(username, playlist_id, uris).then(function() {
-			    return urls;
-			});
-		    });
-		});
+		return makePlaylist('spotify', {access_token:access_token}, playlist_title, trackKeys);
 	    });
 
 	    
         } else if (info.service === 'rdio') {
 	    promise = rdio_get_access_token(info.oauth_token, info.oauth_secret, req.params.oauth_verifier).then(
 		function(result) {
-                    access_token = result.token
-                    access_token_secret = result.secret;
-
-                    console.log('ok', info, 'result', result, access_token, access_token_secret);
-
-                    var api = make_rdio_api_fn(access_token, access_token_secret);
-		    var payload = {'method': 'createPlaylist', 
-				   'name': playlist_title, 
-				   'description': 'A playlist of local artists playing near you, now.',
-				   'isPublished': 'false',
-				   'tracks': trackKeys.join(',')};
-		    console.log('api create ', payload, ' with ', access_token, access_token_secret);
-		    return api(payload);
-		}
-	    ).then(
-		function(result) {
-		    return {'http': result.url};
+		    return makePlaylist(info.service, result, playlist_title, trackKeys);
 		}
 	    );
         } else {
