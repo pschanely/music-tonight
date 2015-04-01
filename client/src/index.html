@@ -158,8 +158,7 @@
     <body ng-controller="mtController">
       <div id="allcontent">
 	    <div>
-	      
-	      <div id="options" ng-show="showOptions">
+	      <div id="options" ng-show="showOptions" ng-cloak>
 		<div style="text-align: center">
 		  <div>
 		    <input id="citySearchInput" type="text" class="outlined" size="27" placeholder="city/zip"/>
@@ -217,7 +216,7 @@
 			id="path3422" />
 		</svg>
 
-		<div style="font-size:80px; padding-top:10px; font-family: Georgia, serif;">{{(just_authed()) ? ((is_loading) ? '...' : '&#9825;') : 'hi'}}</div>
+		<div style="font-size:80px; padding-top:10px; font-family: Georgia, serif;" ng-cloak>{{(just_authed()) ? ((is_loading) ? '...' : '&#9825;') : 'hi'}}</div>
 		<div id="discussion" style="padding: 1em">
 		    <div ng-hide="just_authed()" style="text-align:center">
 			<div style="font-size: 115%">
@@ -228,7 +227,7 @@
 			  <input type="hidden" name="track_keys" value="{{track_artist_json()}}" />
 			  <input type="hidden" name="service" value="{{opts.service}}" />
 			</form>
-			<div ng-show="track_data && !is_loading" class="bouncy">
+			<div ng-show="track_data && !is_loading" class="bouncy" ng-cloak>
 			  <a href="#" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); showOptions = true">
 			    <svg xmlns="http://www.w3.org/2000/svg" version="1.1"  width="16" height="16" viewBox="0 0 128 128">
 			      <g data-width="128" data-height="128" class="iconic-lg iconic-container" display="inline" transform="rotate(180 64 64) translate(24)">
@@ -241,7 +240,7 @@
 
 			</div>
 		    </div>
-		    <div ng-show="just_authed()">
+		    <div ng-show="just_authed()" ng-cloak>
 			<div ng-show="is_loading">
 			    Creating Playlist...
 			</div>
@@ -251,7 +250,7 @@
 		    </div>
 		</div>
 	    </div>
-	    <div class="results">
+	    <div class="results" ng-cloak>
 		<div ng-show="is_loading">
 		  <img src="img/loading.svg" width="128" height="64" alt="loading..." />
 		</div>
