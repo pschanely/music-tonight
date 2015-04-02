@@ -8,6 +8,7 @@
   },
   "author": "",
   "dependencies": {
+    "bit-array": "^0.2.2",
     "mysql2": "^0.15.2",
     "node-uuid": "^1.4.3",
     "q": "^1.0.1",

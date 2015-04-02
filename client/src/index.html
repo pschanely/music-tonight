@@ -245,14 +245,15 @@
 			    Creating Playlist...
 			</div>
 			<div ng-hide="is_loading" style="text-align:left" class="bouncy">
-			    <a ng-href="{{playlist_links.http}}" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); open_playlist()">Open playlist in {{opts.service}}</a>
+			    <a ng-href="{{playlist_links.http}}" style="display:inline-block" class="outlined big" ng-click="open_playlist($event)">Open playlist in {{opts.service}}</a>
 			</div>
 		    </div>
 		</div>
 	    </div>
 	    <div class="results" ng-cloak>
 		<div ng-show="is_loading">
-		  <img src="img/loading.svg" width="128" height="64" alt="loading..." />
+		  <div><img src="img/loading.svg" width="128" height="64" alt="loading..." /></div>
+		  <div ng-show="load_error">{{load_error}}</div>
 		</div>
 		<ul ng-show="track_data">
 		    <li ng-repeat="track in track_data">
@@ -552,6 +553,7 @@
 		     g_name = response.data.name;
 		     $scope.track_data = response.data.tracks;
 		     $scope.is_loading = false;
+		     $scope.load_error = null;
 		   },
 		   function(error) {
 		     if (JSON.stringify(error.data).indexOf('cannot_geo_ip') > -1) {
@@ -567,7 +569,9 @@
 			 });
 		     } else {
 		       if (error.status >= 500 && error.status < 600) {
-			 //alert("Uh oh; I'm not feeling well. Could you come back a little later?");  TODO do a nonmodal alert
+			 $scope.load_error = "Uh oh; I'm not feeling well. Maybe come back a little later?";
+		       } else {
+			 $scope.load_error = "Do you have a data connection?  I'll keep trying.";
 		       }
 		       $timeout(function(){$scope.get_music(coords);}, 5000);
 		     }
@@ -598,16 +602,16 @@
 		 }
 	       }
 	       
-	       $scope.open_playlist = function() {
+	       $scope.open_playlist = function(event) {
 		 ga('send', 'event', 'opened_playlist');
 		 if (is_app && (platform == 'ios' || platform == 'android')) {
+		   event.preventDefault();
 		   var scheme = {'ios':'spotify://', 'android':'com.spotify.music'}[platform];
 		   appAvailability.check(
 		     scheme, 
 		     function() { window.location = $scope.playlist_links.app; },
-		     function() { window.location = $scope.playlist_links.http; });
-		 } else {
-		   window.location = $scope.playlist_links.http;
+		     function() { window.location = $scope.playlist_links.http; }
+		   );
 		 }
 	       };
 	       

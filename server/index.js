@@ -141,6 +141,18 @@ function clientCookie(req, res) {
     return myKey;
 }
 
+function fetchUserInfo(authStore, myKey) {
+    return authStore.get(myKey).then(function(info) {
+	if (! info) {
+	    info = {};
+	}
+	if (! info.div) {
+	    info.div = {};
+	}
+	return info;
+    });
+}
+
 function titlePlaylist() {
     return formatDate(new Date()).substring(0,10) + '-music-tonight';
 }
@@ -156,6 +168,58 @@ function parse_hash_query(url) {
 	args[key] = val;
     });
     return args;
+}
+
+function getDiversityChecker(divblock) {
+    var daypart = Math.floor(new Date().getTime() / (12 * 3600 * 1000));
+    var old = {};
+    var today = {};
+    var now = {};
+    for(var k in divblock) {
+	if (k > daypart - 14) {
+	    divblock[k].forEach(function(hsh) {
+		if (k == daypart) {
+		    today[hsh] = true;
+		} else {
+		    old[hsh] = true;
+		}
+	    });
+	} else {
+	    delete divblock[k];
+	}
+    }
+    return {
+	check: function(key) {
+	    var idx = hashCode(key) + '';
+	    return (old[idx] || now[idx]);
+	},
+	add: function(key) {
+	    var idx = hashCode(key) + '';
+	    old[idx] = true;
+	    today[idx] = true;
+	    now[idx] = true;
+	},
+	commit: function() {
+	    divblock[daypart] = Object.keys(today);
+	    if (divblock[daypart].length > 500) {
+		divblock[daypart] = [];
+	    }
+	    return divblock;
+	}
+    };
+}
+
+function score_track(track, divchecker) {
+    var novel = divchecker.check(track.name) ? 0.0 : 1.0;
+    var popularity = 0.0;
+    if (track.popularity) { // spotify
+	popularity = track.popularity / 100.0;
+    } else if (track.playCount) { // rdio
+	popularity = 1.0 - (100.0 / (track.playCount + 1));
+	popularity = Math.min(1.0, Math.max(0.0, popularity)); // clamp to unit value
+    }
+    var score = novel + popularity / 2.0;
+    return score
 }
 
 function formatDate(dt) {
@@ -226,7 +290,7 @@ function make_spotify_api_fn(access_token) {
 		'Content-Type': 'application/json'
             };
 	    return http({method:'post', url:url, body:tracks, json:true, headers: headers}).
-		then(function(r) {console.log('addtracks ', playlist, tracks, r); return r.id;});
+		then(function(r) {return r.id;});
 	}
     };
 }
@@ -325,14 +389,11 @@ function redirectToAuth(myKey, info, res, authStore) {
 	    res.send(302);
 	}).done();
     } else if (service === 'rdio') {
-	console.log('starting');
         rdio.getRequestToken(function(error, oauth_token, oauth_token_secret, results){
-	    console.log('req token error=', error);
             if (! error) {
                 info['oauth_secret'] = oauth_token_secret;
                 info['oauth_token'] = oauth_token;
 		return authStore.set(myKey, info).then(function(){
-		    console.log('SET');
 		    var login = results['login_url'] + '?oauth_token=' + oauth_token + '&state='+myKey;
 		    res.header('Location', login);
 		    res.send(302);
@@ -348,14 +409,14 @@ function redirectToAuth(myKey, info, res, authStore) {
 }
 
 function hashCode(string) {
-  var hash = 0, i, chr, len;
-  if (string.length == 0) return hash;
-  for (i = 0, len = string.length; i < len; i++) {
-    chr   = string.charCodeAt(i);
-    hash  = ((hash << 5) - hash) + chr;
-    hash |= 0; // Convert to 32bit integer
-  }
-  return hash;
+    var hash = 0, i, chr, len;
+    if (string.length == 0) return hash;
+    for (i = 0, len = string.length; i < len; i++) {
+	chr   = string.charCodeAt(i);
+	hash  = ((hash << 5) - hash) + chr;
+	hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
 }
 
 var NUM_TRACKS_CACHED = 7;
@@ -418,7 +479,7 @@ function rdioArtist(performer) {
 		{'method':'getTracksForArtist', 
 		 'artist': artist.key, 
 		 'count':NUM_TRACKS_CACHED, 
-		 'extras':'-*,key,name'
+		 'extras':'-*,key,name,playCount'
 		}
 	    ).then(function(tracks) {
 		if (!tracks) {
@@ -426,7 +487,10 @@ function rdioArtist(performer) {
 		    return null;
 		}
 		tracks = tracks.map(function(item) {
-		    return {name: item.name, artist: performer, key: item.key};
+		    return {name: item.name, 
+			    artist: performer,
+			    key: item.key, 
+			    playCount: item.playCount};
 		});
 		artist.tracks = tracks;
 		return artist;
@@ -463,7 +527,6 @@ function makePlaylist(service, authInfo, trackKeys) {
 	});
     } else if (service == 'rdio') {
 	var access_token_secret = authInfo.secret;
-	console.log('making playlist2 ', access_token, access_token_secret);
         var api = make_rdio_api_fn(access_token, access_token_secret);
 	var payload = {'method': 'createPlaylist', 
 		       'name': titlePlaylist(), 
@@ -481,7 +544,7 @@ function makePlaylist(service, authInfo, trackKeys) {
 }
 
 
-function getMusic(eventOptions, trackOptions, artistStore) {
+function getMusic(eventOptions, trackOptions, artistStore, divchecker) {
     var maxTracksPerArtist = trackOptions.maxTracksPerArtist;
     return fetchEvents(eventOptions, 2).then(function(performer_map) {
 	var service = trackOptions.service;
@@ -505,19 +568,19 @@ function getMusic(eventOptions, trackOptions, artistStore) {
 		}
 	    });
 	    return Q.all(promises).then(function(artists) {
-		var tracks = [];
+		var result_tracks = [];
 		artists.forEach(function(artist) {
 		    if (! artist) {return;}
 		    var event = performer_map[artist.name];
+		    var tracks = artist.tracks;
+		    tracks.sort(function(a, b) { return score_track(b, divchecker) - score_track(a, divchecker); });
 		    artist.tracks.slice(0, tracksPerArtist).forEach(function(track){
 			track.event = event;
-			if (track.name.split(' ').length > 6) {
-			    track.name = track.name.split(' ', 6).join(' ') + '...';
-			}
-			tracks.push(track);
+			divchecker.add(track.name);
+			result_tracks.push(track);
 		    });
 		});
-		return {name: playlistName, tracks:tracks};
+		return {name: playlistName, tracks:result_tracks};
 	    });
 	});
     });
@@ -568,6 +631,7 @@ function makeServer(artistStore, authStore) {
 
     server.get('/api/playlist', promised(function(req, res) {
 	console.log('get playlist', req.params);
+
 	var clientIp = req.headers['x-forwarded-for'] || 
 	    req.connection.remoteAddress || 
 	    req.socket.remoteAddress ||
@@ -595,9 +659,18 @@ function makeServer(artistStore, authStore) {
 	    service: (req.params.service) ? req.params.service : 'spotify',
 	    maxTracksPerArtist: (req.params.maxartisttracks) ? parseInt(req.params.maxartisttracks) : 2
 	};
-	return getMusic(eventOptions, trackOptions, artistStore).then(function(result) {
-	    result.language = language;
-	    return result;
+
+        var myKey = clientCookie(req, res);
+	return fetchUserInfo(authStore, myKey).then(function(info) {
+	    var divchecker = getDiversityChecker(info.div);
+	    
+	    return getMusic(eventOptions, trackOptions, artistStore, divchecker).then(function(result) {
+		result.language = language;
+		info.div = divchecker.commit();
+		console.log('new info', info);
+		authStore.set(myKey, info).done();
+		return result;
+	    });
 	});
     }));
 
@@ -606,7 +679,6 @@ function makeServer(artistStore, authStore) {
         var trackKeys = JSON.parse(req.params.track_keys);
         var myKey = clientCookie(req, res);
 	authStore.get(myKey).then(function(authInfo) {
-	    console.log('auth info ', authInfo);
 	    if (authInfo && authInfo.access) {
 		authInfo.service = service;
 		return makePlaylist(authInfo.service, authInfo.access, trackKeys).then(function(links) {
@@ -623,9 +695,7 @@ function makeServer(artistStore, authStore) {
 
     server.get('/api/music_svc_callback', function(req, res) {
         var myKey = clientCookie(req, res);
-	console.log('callback', myKey, authStore);
 	authStore.get(myKey).then(function(info) {
-	    console.log('callback info', info);
             var trackKeys = info.track_keys;
 	    delete info.track_keys;
             var openlink = '';
@@ -656,14 +726,12 @@ function makeServer(artistStore, authStore) {
 		
 		
             } else if (info.service === 'rdio') {
-		console.log('rdio');
 		promise = rdio_get_access_token(info.oauth_token, info.oauth_secret, req.params.oauth_verifier);
             } else {
 		res.send(400, 'Invalid service');
 		return;
 	    }
 	    promise = promise.then(function(accessdata) {
-		console.log('PROMISE ACCESSDATA ', accessdata);
 		info.access = accessdata;
 		return makePlaylist(info.service, accessdata, trackKeys);
 	    }).then(function(links) {
