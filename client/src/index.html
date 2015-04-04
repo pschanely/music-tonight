@@ -183,7 +183,7 @@
 	    <div>
 	      <div id="options" ng-show="showOptions" ng-cloak>
 		<div style="text-align: center">
-		  <div>
+		  <div ng-show="maps_is_ready()">
 		    <input id="citySearchInput" type="text" class="outlined" size="27" placeholder="city/zip"/>
 		  </div>
 		  &nbsp;
@@ -442,8 +442,8 @@
 		</div>
 	    </div>
 	</div>
-	<script src="https://maps.googleapis.com/maps/api/js?libraries=places&key=GOOGLE_API_KEY" inline></script>
 	<script>
+	 function noop() {}
 	 (function() {
 	   var OPTS_DEFAULTS = {daysout:1, maxmiles:125, loctext:'', maxartisttracks:2, service:'spotify'};
 	   var client_id = 'SPOTIFY_CLIENT_ID';
@@ -465,24 +465,6 @@
 	     var mm = (dt.getMonth()+1).toString(); // getMonth() is zero-based
 	     var dd  = dt.getDate().toString();
 	     return yyyy + '-' + (mm[1]?mm:"0"+mm[0]) + '-' + (dd[1]?dd:"0"+dd[0]); // padding
-	   }
-
-	   function fallback_goto(url, fallback) {
-	     try {
-	       window.location = url;
-	     } catch(e) {
-	       window.locaiton = fallback;
-	     }
-	     return;
-	     var script = document.createElement('script'); 
-	     script.onload = function() { 
-               window.location = url;
-	     } 
-	     script.onerror = function() { 
-               window.location = fallback;
-	     } 
-	     script.setAttribute('src', url); 
-	     document.getElementsByTagName('head')[0].appendChild(script);
 	   }
 
 	   function parse_hash_query(url) {
@@ -513,7 +495,6 @@
 	   module.controller('mtController', [
 	     '$scope', '$http', '$q', '$timeout',
 	     function($scope, $http, $q, $timeout) {
-	       console.log('controller init');
 	       $scope.lang = navigator.languages ? navigator.languages[0] : (navigator.language || navigator.userLanguage);
 	       $scope.playlist_links = parse_hash_query(window.location.hash);
 	       $scope.is_app = is_app;
@@ -527,26 +508,6 @@
 
 	       var citySearchInput = document.getElementById('citySearchInput');
 	       citySearchInput.value = $scope.opts.loctext;
-	       if (typeof google !== 'undefined') {
-		 var cityAutocomplete = new google.maps.places.Autocomplete(
-		   citySearchInput, { types: ['(regions)'] }
-		 );
-		 
-		 $scope.place_to_scope = function() {
-		   var place = cityAutocomplete.getPlace();
-		   var loctext = citySearchInput.value;
-		   if (! loctext) {
-		     $scope.opts.latlon = null;
-		     $scope.opts.loctext = '';
-		   } else if (place) {
-		     var loc = place.geometry.location;
-		     $scope.opts.latlon = loc.k + ',' + loc.D;
-		     $scope.opts.loctext = loctext;
-		   }
-		 };
-		 
-		 google.maps.event.addListener(cityAutocomplete, 'place_changed', $scope.place_to_scope);
-	       }
 
 	       $scope.reset_options = function() {
 		 for (var k in OPTS_DEFAULTS) {
@@ -555,8 +516,48 @@
 		 citySearchInput.value = '';
 	       };
 
+	       var google_maps_loading = false;
+	       var google_maps_has_loaded = false;
+	       function load_google_maps() {
+		 if (google_maps_loading) return;
+		 var e = document.createElement('script');
+		 e.setAttribute("type", "text/javascript");
+		 e.setAttribute("src", "https://maps.googleapis.com/maps/api/js?libraries=places&callback=noop&key=GOOGLE_API_KEY");
+		 document.body.appendChild(e);
+		 google_maps_loading = true;
+	       }
+	       $scope.place_to_scope = function() {}
+	       $scope.maps_is_ready = function() {
+		 load_google_maps();  // just in case
+
+		 if (typeof google !== 'undefined') {
+		   if (! google_maps_has_loaded) {
+		     google_maps_has_loaded = true;
+		     var cityAutocomplete = new google.maps.places.Autocomplete(
+		       citySearchInput, { types: ['(regions)'] }
+		     );
+		     $scope.place_to_scope = function() {
+		       var place = cityAutocomplete.getPlace();
+		       var loctext = citySearchInput.value;
+		       if (! loctext) {
+			 $scope.opts.latlon = null;
+			 $scope.opts.loctext = '';
+		       } else if (place) {
+			 var loc = place.geometry.location;
+			 $scope.opts.latlon = loc.k + ',' + loc.D;
+			 $scope.opts.loctext = loctext;
+		       }
+		     };
+		     google.maps.event.addListener(cityAutocomplete, 'place_changed', $scope.place_to_scope);
+		   }
+		   return true;
+		 } else {
+		   return false;
+		 }
+	       }
+				
 	       $scope.get_music = function(coords) {
-		 console.log('getting music');
+		 load_google_maps();
 		 $scope.is_loading = true;
 		 $scope.track_data = [];
 		 ga('send', 'event', 'loading_playlist');
@@ -584,14 +585,11 @@
 		   function(error) {
 		     if (JSON.stringify(error.data).indexOf('cannot_geo_ip') > -1) {
 		       // try geolocation
-		       console.log('geolocate');
 		       navigator.geolocation.getCurrentPosition(
 			 function(position) {
-			   console.log('geolocate done');
 			   $scope.get_music(position.coords);
 			 },
 			 function(err) {
-			   console.log('geolocate err');
 			   // give up and hope they enter it manually
 			   // though this doesn't seem to ever get called for me
 			   $scope.is_loading = false;
@@ -622,7 +620,6 @@
 		 var tracks = encodeURIComponent($scope.track_artist_json());
 		 var url = $scope.svc_auth_uri + '?track_keys=' + tracks + '&service=' + $scope.opts.service;
 		 if (is_app) {
-		   console.log('opening', url);
 		   var authWindow = window.open(url, '_blank', 'location=no,toolbar=no');
 		   function loadstart_handler(e) {
 		     var args = parse_hash_query(e.url);
@@ -668,7 +665,6 @@
 		     platform_map = {'ios':['rdio://'], 'android':['com.rdio.oi.android.ui', 'com.rdio.android.ui']};
 		   }
 		   var schemes = platform_map[platform].slice(0);
-		   console.log('m', platform_map, 'p', platform, schemes, $scope.playlist_links);
 		   if (schemes) {
 		     event.preventDefault();
 		     function tryone() {
@@ -710,13 +706,11 @@
 	       };
 	       
 	       document.addEventListener('backbutton', function() {
-		 console.log('pl links', $scope.playlist_links);
 		 if ($scope.playlist_links) {
 		   $scope.playlist_links = null;
 		   $scope.load_initial();
 		   $scope.$apply();
 		 } else {
-		   console.log('exiting app');
 		   navigator.app.exitApp();
 		 }
 	       }, false);
@@ -729,7 +723,6 @@
 		 }
 	       }
 	       
-	       console.log('controller init complete');
 	     }]);
 	   
 	 })();
