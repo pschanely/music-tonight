@@ -295,6 +295,23 @@ function make_spotify_api_fn(access_token) {
     };
 }
 
+function allPages(reqGenerator, resultProcessor, pageSize) {
+    function onePage(pageNum) {
+	return http(reqGenerator(pageSize, pageNum)).then(function(response) {
+	    var results = resultProcessor(response);
+	    if (results.length < pageSize) {
+		return results;
+	    } else {
+		return onePage(pageSize, pageNum + 1).then(function(subresults) {
+		    results.forEach(function(r){subresults.push(r);});
+		    return subresults;
+		});
+	    }
+	});
+    }
+    return onePage(1);
+}
+
 function fetchEvents(opts, range) {
     var zipcode = opts.zipcode;
     var latlon = opts.latlon;
@@ -362,7 +379,7 @@ function fetchEvents(opts, range) {
 	    return performer_map;
 	} else {
 	    var multiplier = Math.sqrt((target_count + 1) / (num_events + 1));
-	    if (multiplier < 1.1) { multiplier = 1.1; }
+	    if (multiplier < 1.5) { multiplier = 1.5; }
 	    if (multiplier > 2.0) { multiplier = 2.0; }
 	    return fetchEvents(opts, 1 + Math.ceil(range * multiplier));
 	}
@@ -370,6 +387,7 @@ function fetchEvents(opts, range) {
 }
 
 function redirectOnCreate(res, links) {
+    console.log('sending playlist redirect', new Date().getTime());
     res.header('Location', '/#http=' + encodeURIComponent(links.http) +
 	       '&app=' + encodeURIComponent(links.app));
     res.send(302);
@@ -385,6 +403,7 @@ function redirectToAuth(myKey, info, res, authStore) {
             '&scope=playlist-read-private%20playlist-modify%20playlist-modify-private' +
             '&redirect_uri=' + config.SPOTIFY.callback_url;
 	return authStore.set(myKey, info).then(function(){
+	    console.log('spotify auth redirect', new Date().getTime());
 	    res.header('Location', uri);
 	    res.send(302);
 	}).done();
@@ -395,6 +414,7 @@ function redirectToAuth(myKey, info, res, authStore) {
                 info['oauth_token'] = oauth_token;
 		return authStore.set(myKey, info).then(function(){
 		    var login = results['login_url'] + '?oauth_token=' + oauth_token + '&state='+myKey;
+		    console.log('rdio auth redirect', new Date().getTime());
 		    res.header('Location', login);
 		    res.send(302);
 		}).done();
@@ -512,7 +532,6 @@ function rdioArtist(performer) {
 }
 
 function makePlaylist(service, authInfo, trackKeys) {
-    console.log('making playlist ', authInfo, trackKeys);
     var access_token = authInfo.token;
     if (service == 'spotify') {
 	var api = make_spotify_api_fn(access_token);
@@ -535,7 +554,8 @@ function makePlaylist(service, authInfo, trackKeys) {
 		       'tracks': trackKeys.join(',')};
 	return api(payload).then(
 	    function(result) {
-		return {'http': 'http://www.rdio.com' + result.url};
+		return {http: 'http://www.rdio.com' + result.url,
+			app: 'rdio://www.rdio.com' + result.url};
 	    }
 	);
     } else {
@@ -546,7 +566,7 @@ function makePlaylist(service, authInfo, trackKeys) {
 
 function getMusic(eventOptions, trackOptions, artistStore, divchecker) {
     var maxTracksPerArtist = trackOptions.maxTracksPerArtist;
-    return fetchEvents(eventOptions, 2).then(function(performer_map) {
+    return fetchEvents(eventOptions, 5).then(function(performer_map) {
 	var service = trackOptions.service;
 	var playlistName = formatDate(new Date()).substring(0, 10) + '-music-tonight';
 	var performers = Object.keys(performer_map);
@@ -630,7 +650,7 @@ function makeServer(artistStore, authStore) {
     server.use(restify.queryParser());
 
     server.get('/api/playlist', promised(function(req, res) {
-	console.log('get playlist', req.params);
+	console.log('/api/playlist', req.params, new Date().getTime());
 
 	var clientIp = req.headers['x-forwarded-for'] || 
 	    req.connection.remoteAddress || 
@@ -667,23 +687,25 @@ function makeServer(artistStore, authStore) {
 	    return getMusic(eventOptions, trackOptions, artistStore, divchecker).then(function(result) {
 		result.language = language;
 		info.div = divchecker.commit();
-		console.log('new info', info);
 		authStore.set(myKey, info).done();
 		return result;
 	    });
 	});
     }));
 
-    server.post('/api/music_svc_auth', function(req, res) {
+    server.get('/api/music_svc_auth', function(req, res) {
+	console.log('/api/music_svc_auth', req.params, new Date().getTime());
         var service = req.params.service;
         var trackKeys = JSON.parse(req.params.track_keys);
         var myKey = clientCookie(req, res);
 	authStore.get(myKey).then(function(authInfo) {
 	    if (authInfo && authInfo.access) {
 		authInfo.service = service;
+		authInfo.track_keys = trackKeys;
 		return makePlaylist(authInfo.service, authInfo.access, trackKeys).then(function(links) {
 		    redirectOnCreate(res, links);
-		}).then(function(){}, function() {
+		}).then(function(){}, function(err) {
+		    console.log('Could not use saved access info (', authInfo.access, '):', err);
 		    return redirectToAuth(myKey, authInfo, res, authStore);
 		});
 	    } else {
@@ -694,6 +716,7 @@ function makeServer(artistStore, authStore) {
     });
 
     server.get('/api/music_svc_callback', function(req, res) {
+	console.log('/api/music_svc_callback', req.params, new Date().getTime());
         var myKey = clientCookie(req, res);
 	authStore.get(myKey).then(function(info) {
             var trackKeys = info.track_keys;

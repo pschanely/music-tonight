@@ -24,23 +24,31 @@ var config_patterns = [
     { pattern: /GOOGLE_API_KEY/g, replacement: config.GOOGLE_API_KEY }
 ];
 
-gulp.task('default', function() {
-
-    gulp.src('./src/*.html')
-        .pipe(inlinesource({compress:true}))
-        //.pipe(inlineimg('src'))
-	.pipe(frep(config_patterns))
-	.pipe(gulp.dest('./dist'));
+function buildto(dir, isweb) {
+    var html = gulp.src('./src/*.html');
+    if (isweb) {
+        html = html.pipe(inlinesource({compress:true}));
+    }
+    html.pipe(frep(config_patterns))
+	.pipe(gulp.dest(dir));
 
     gulp.src(mainBowerFiles({paths:'./src', debugging:false}), { base:'./src/bower_components'})
-	.pipe(gulp.dest('./dist/bower_components'));
+	.pipe(gulp.dest(dir + '/bower_components'));
 
     gulp.src('./src/img/*')
-        .pipe(gulp.dest('./dist/img'));
+        .pipe(gulp.dest(dir + '/img'));
 
+}
+
+gulp.task('default', function() {
+    buildto('./dist', true);
+});
+
+gulp.task('app', function() {
+    buildto('../mobile/www', false);
 });
 
 gulp.task('watch', function() {
-    gulp.watch('./src/*.html', ['default']);
-    gulp.watch('./src/img/*', ['default']);
+    gulp.watch('./src/*.html', ['default','app']);
+    gulp.watch('./src/img/*', ['default','app']);
 });
