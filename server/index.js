@@ -90,7 +90,7 @@ function mysqlStore(pool, table) {
 	return {
 	    'get': function(key) {
 		if (! openRequests[key]) {
-		    openRequests[key] = pool.boundQuery('SELECT k,v FROM ' + table + ' WHERE k=? COLLATE utf8_general_ci', key).then(function(rows) {
+		    openRequests[key] = pool.boundQuery('SELECT k,v FROM ' + table + ' WHERE k=? COLLATE utf8_unicode_ci', key).then(function(rows) {
 			if (rows.length == 0) return undefined;
 			var ret = JSON.parse(rows[0].v);
                         return ret;
@@ -103,7 +103,7 @@ function mysqlStore(pool, table) {
 	    'mget': function(keys) {
 		if (keys.length === 0) return Q.fcall(function(){return {};});
 		var clauses = keys.map(function(k){return 'k=?';}).join(' OR ');
-		return pool.boundQuery('SELECT k,v FROM ' + table + ' WHERE '+clauses+' COLLATE utf8_general_ci', keys).then(function(rows) {
+		return pool.boundQuery('SELECT k,v FROM ' + table + ' WHERE '+clauses+' COLLATE utf8_unicode_ci', keys).then(function(rows) {
 		    var result = {};
 		    rows.forEach(function(row){result[row.k] = JSON.parse(row.v);});
 		    return result;
