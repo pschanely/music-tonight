@@ -281,7 +281,7 @@
 	    </div>
 	    <div class="results" ng-cloak>
 		<div ng-show="is_loading">
-		  <div><img src="img/loading.svg" width="128" height="64" alt="loading..." /></div>
+		  <div><img style="display:block; margin:auto" src="img/loading.svg" width="128" height="64" alt="loading..." /></div>
 		  <div ng-show="load_error">{{load_error}}</div>
 		</div>
 		<ul ng-show="track_data">
@@ -640,7 +640,7 @@
 	       $scope.get_ticket_link = function(track) {
 		 if (is_app) {
 		   var search = track.artist + ' at ' + track.event.venue.name;
-		   return 'http://google.com/#q=' + encodeURIComponent(search);
+		   return 'http://google.com/search?q=' + encodeURIComponent(search);
 		 } else {
 		   return track.event.url;
 		 }
@@ -673,10 +673,9 @@
 			 scheme,
 			 function() {
 			   cordova.exec(null, null, "InAppBrowser", "open", [$scope.playlist_links.app, "_system"]);
-			   //window.location = $scope.playlist_links.app;
 			 },
 			 function() {
-			   if (schemes) {
+			   if (schemes.length > 0) {
 			     tryone();
 			   } else {
 			     cordova.exec(null, null, "InAppBrowser", "open", [$scope.playlist_links.http, "_system"]);
