@@ -1,0 +1,194 @@
+/* CSS reset */
+body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,form,fieldset,input,textarea,p,blockquote,th,td { 
+    margin:0;
+    padding:0;
+}
+html {
+    margin:0;
+    padding:0;
+    background: #eee url(img/bkgr.svg) no-repeat top left;
+    background-size: 100%;
+    font-size: 100%;
+    font-family: Arial, Helvetica, sans-serif;
+}
+form {
+    display:inline-block;
+}
+input {
+    display:inline-block;
+}
+a {
+    display:inline-block;
+}
+a:hover, button:hover {
+    background-color: transparent;
+}
+a:visited, a:link {
+    color: #353535;
+}
+.outlined:hover {
+    background-color: #fff;
+}
+.outlined {
+    color: #000000;
+    border: solid #000000 5px;
+    text-decoration: none;
+}
+.big {
+    font-size: 130%;
+}
+input.outlined {
+    padding: 0.3em 0.6em 0.3em 0.6em;
+    -webkit-border-radius: 0.2em;
+    -moz-border-radius: 0.2em;
+    border-radius: 0.2em;
+}
+button.outlined, a.outlined {
+    padding: 0.2em 0.4em 0.2em 0.4em;
+    -webkit-border-radius: 1em;
+    -moz-border-radius: 1em;
+    border-radius: 1em;
+    text-decoration: none;
+    opacity: 1;
+    overflow-x: hidden;
+}
+.bouncy.ng-hide-remove, .bouncy.ng-hide-remove {
+    -webkit-animation: bounceInRight 1s;
+    -moz-animation: bounceInRight 1s;
+    -o-animation: bounceInRight 1s;
+    animation: bounceInRight 1s;
+}
+.callout a {
+    text-decoration: underline;
+}
+.callout {
+    display: inline-block;
+    position: absolute;
+    margin-top: -1.8em;
+    margin-left: -1.0em;
+    font-style: italic;
+    font-size: 90%;
+    border: solid 1px #e2e2e2;
+    border-top-left-radius: 0.8em;
+    border-top-right-radius: 0.8em;
+    border-bottom-right-radius: 0.8em;
+    padding: 0.1em 0.3em;
+    background-color: #f8f8f8;
+}
+li.ng-enter, li.ng-move {
+    -webkit-animation: fadeIn 1s;
+    -moz-animation: fadeIn 1s;
+    -o-animation: fadeIn 1s;
+    animation: fadeIn 1s;
+}
+.optionlabel {
+    display: inline-block;
+    width: 12em;
+    text-align: left;
+}
+#options.ng-hide-remove {
+    -webkit-animation: bounceInRight 1s;
+    -moz-animation: bounceInRight 1s;
+    -o-animation: bounceInRight 1s;
+    animation: bounceInRight 1s;
+}
+#options.ng-hide-add {
+    -webkit-animation: bounceOutRight 1s;
+    -moz-animation: bounceOutRight 1s;
+    -o-animation: bounceOutRight 1s;
+    animation: bounceOutRight 1s;
+}
+.serviceicon {
+    width:1.4em;
+    height:1.2em;
+    display: inline-block;
+    position: relative;
+    margin-bottom: -0.3em;
+}
+#options {
+    z-index: 50;
+    background-color: #f8f8f8;
+    box-shadow: 4px 4px 4px #444;
+    border: solid #000000 0px;
+    -webkit-border-radius: 1.5em;
+    -moz-border-radius: 1.5em;
+    border-radius: 1.5em;
+    padding: 3em 0.5em;
+    position: absolute;
+    width: 85%;
+    left: 5%;
+    top: 2em;
+}
+h2 {
+    margin-top: 1em;
+    margin-bottom: 0.1em;
+}
+p {
+    margin-top: 0.8em;
+    line-height: 135%;
+}
+ul {
+    list-style-type: none;
+    margin: 0em 1em 0em 1em;
+}
+li {
+    line-height: 135%;
+}
+.dtlist {
+    display: table;
+}
+.dtlist > li {
+    display: table-row;
+}
+.dtlist > li > span {
+    display: table-cell;
+    padding-right: 0.6em;
+}
+span.newsdt {
+    text-align: right;
+}
+.results li {
+    border-top: 1px solid #ddd;
+    padding: 0px;
+}
+.results a {
+    text-decoration: none;
+}
+.results a:hover {
+    background: #fff;
+    transition: background-color 0.4s ease;
+}
+.results li:last-child {
+    border-bottom: 1px solid #ddd;
+}
+.event_date {
+    font-size: 80%
+}
+@media (min-width: 701px) {
+    #allcontent {
+	display:block;
+	width:700px;
+	margin: 3em auto;
+    }
+}
+@media (max-width: 700px) {
+    #allcontent {
+	display:block;
+	margin: 4px auto;
+    }
+    #discussion {
+	clear:both;
+	padding: 1em;
+    }
+}
+.results {
+    clear:both;
+    font-size: 90%;
+    display:block;
+}
+
+.mtsays {
+    font-size:80px;
+    padding-top:10px;
+    font-family: Georgia, serif;
+}
