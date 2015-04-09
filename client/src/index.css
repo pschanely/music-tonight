@@ -58,9 +58,6 @@ button.outlined, a.outlined {
     -o-animation: bounceInRight 1s;
     animation: bounceInRight 1s;
 }
-.callout a {
-    text-decoration: underline;
-}
 .callout {
     display: inline-block;
     position: absolute;
@@ -72,7 +69,7 @@ button.outlined, a.outlined {
     border-top-left-radius: 0.8em;
     border-top-right-radius: 0.8em;
     border-bottom-right-radius: 0.8em;
-    padding: 0.1em 0.3em;
+    padding: 0.1em 0.5em 0.1em 0.4em;
     background-color: #f8f8f8;
 }
 li.ng-enter, li.ng-move {

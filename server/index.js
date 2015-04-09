@@ -16,7 +16,7 @@ var cookieparser = require('restify-cookies');
 var requireDir = require('require-dir');
 var uuid = require('node-uuid');
 var configFiles = requireDir('./config');
-
+var soundclouder = require("soundclouder");
 
 var os = require('os');
 
@@ -54,10 +54,14 @@ getLocalIps().forEach(function(ip) {
 });
 console.log('My host prefix is ', config.HOST_PREFIX);
 
-config.RDIO.callback_url = config.HOST_PREFIX + config.RDIO.callback_url;
-config.SPOTIFY.callback_url = config.HOST_PREFIX + '/api/music_svc_callback';
+var callback_url = config.HOST_PREFIX + '/api/music_svc_callback';
+
+config.RDIO.callback_url = callback_url;
+config.SPOTIFY.callback_url = callback_url;
 
 var rdio = rdiolib(config.RDIO);
+soundclouder.init(config.SOUNDCLOUD.client_id, config.SOUNDCLOUD.client_secret, callback_url);
+
 var pool = mysql.createPool(config.MYSQL);
 
 
@@ -100,6 +104,13 @@ function mysqlStore(pool, table) {
 		}
 		return openRequests[key];
 	    },
+	    'all': function() {
+		return pool.boundQuery('SELECT k,v FROM ' + table + ' COLLATE utf8_unicode_ci').then(function(rows) {
+                    var result = {};
+                    rows.forEach(function(row){result[row.k] = JSON.parse(row.v);});
+                    return result;
+                });
+	    },
 	    'mget': function(keys) {
 		if (keys.length === 0) return Q.fcall(function(){return {};});
 		var clauses = keys.map(function(k){return 'k=?';}).join(' OR ');
@@ -132,11 +143,9 @@ function http(options) {
 
 function clientCookie(req, res) {
     var myKey = req.cookies.svc_auth_key;
-    console.log('client cookie ', myKey);
     if (! myKey) {
         myKey = uuid.v4();
         res.setCookie('svc_auth_key', myKey);
-	console.log('client cookie set ', myKey);
     }
     return myKey;
 }
@@ -242,6 +251,20 @@ function rdio_get_access_token(oauth_token, oauth_secret, oauth_verifier) {
     return deferred.promise;
 }
 
+function soundcloud_get_access_token(code) {
+    var deferred = Q.defer();
+    soundclouder.auth(code, function(error, access_token) {
+	if (error) {
+	    console.log('could not get access_token');
+            deferred.reject(error);
+        } else {
+	    console.log('access_token ok', access_token);
+            deferred.resolve({'token': access_token});
+	}
+    });
+    return deferred.promise;
+}
+
 function make_rdio_api_fn(token, token_secret) {
     return function(args) {
 	var deferred = Q.defer();
@@ -323,7 +346,7 @@ function fetchEvents(opts, range) {
     var startdt = formatDate(new Date(dt.getTime() - 2 * 3600 * 1000));
     var enddt = formatDate(new Date(dt.getTime() + ((daysout - 1) * 24 - 2) * 3600 * 1000));
 
-    console.log('input', zipcode, opts.clientIp, latlon, startdt, enddt);
+    console.log('fetchEvents input:', zipcode, opts.clientIp, latlon, startdt, enddt);
     var promise;
 
     var uri = 'http://api.bandsintown.com/events/search?app_id=musictonight.millstonecw.com&format=json&per_page=50';
@@ -423,6 +446,13 @@ function redirectToAuth(myKey, info, res, authStore) {
                 res.send(500);
             }
         });
+    } else if (service === 'soundcloud') {
+	var uri = 'https://soundcloud.com/connect?client_id=' + config.SOUNDCLOUD.client_id +
+            '&state=' + myKey + '&response_type=code&redirect_uri=' + encodeURIComponent(callback_url);
+	return authStore.set(myKey, info).then(function(){
+	    res.header('Location', uri);
+	    res.send(302);
+	}).done();
     } else {
         res.send(400, 'Invalid service');
     }
@@ -442,7 +472,7 @@ function hashCode(string) {
 var NUM_TRACKS_CACHED = 7;
 
 function spotifyArtist(performer) {
-    var uri = config.SPOTIFY.artist_search_prefix + 'limit=5&q='+encodeURIComponent('"'+performer+'"');
+    var uri = config.SPOTIFY.artist_search_prefix + 'limit=' + NUM_TRACKS_CACHED + '&q='+encodeURIComponent('"'+performer+'"');
     return http({uri:uri, method:'get', json:true}).then(
 	function(response) {
 	    var artists = response.artists.items;
@@ -531,6 +561,32 @@ function rdioArtist(performer) {
     }
 }
 
+function soundcloudArtist(performer) {
+    var base = 'http://api.soundcloud.com';
+    var uri = base + '/users?limit=1&q='+encodeURIComponent(performer) + '&client_id=' + config.SOUNDCLOUD.client_id;
+    return http({uri: uri, method: 'get', json: true}).then(function(response) {
+	if (response.length === 0) return null;
+	var artistid = response[0].id;
+	var uri = base + '/users/' + artistid + '/tracks?limit=50&client_id=' + config.SOUNDCLOUD.client_id;
+	return http({uri: uri, method: 'get', json: true}).then(function(trackResponse) {
+            var tracks = trackResponse.map(function(item) {
+		return {
+		    name: item.title,
+                    artist: performer,
+                    key: item.id,
+                    playCount: 1.0 - (1/(1+item.favoritings_count)) * (1/(1+item.playback_count))
+		};
+            });
+	    tracks.sort(function(a, b) {return b.playCount - a.playCount});
+	    tracks = tracks.slice(0, NUM_TRACKS_CACHED);
+	    return {
+		'name': performer,
+		'tracks': tracks
+	    };
+	});
+    });
+}
+
 function makePlaylist(service, authInfo, trackKeys) {
     var access_token = authInfo.token;
     if (service == 'spotify') {
@@ -558,6 +614,24 @@ function makePlaylist(service, authInfo, trackKeys) {
 			app: 'rdio://www.rdio.com' + result.url};
 	    }
 	);
+    } else if (service === 'soundcloud') {
+	var title = titlePlaylist();
+	var url = 'http://api.soundcloud.com/playlists';
+	url += '?oauth_token=' + encodeURIComponent(access_token) + '&client_id=' + encodeURIComponent(config.SOUNDCLOUD.client_id);
+	url += '&playlist[sharing]=private&playlist[title]=' + encodeURIComponent(title);
+	var suffix = trackKeys.map(function(k){ return '&playlist[tracks][][id]=' + encodeURIComponent(k); }).join('');
+	url += suffix;
+	console.log('url',url);
+	return http({method:'POST', url:url, json:true}).then(function(response) {
+	    if (response.errors && response.errors.length > 0) {
+		throw new Error('Unable to create playlist:' + JSON.stringify(response.errors));
+	    }
+	    console.log(response);
+            return {
+		http: response.permalink_url,
+                app: 'soundcloud:playlists:' + response.id
+	    };
+	})
     } else {
 	throw new Error('Invalid service');
     }
@@ -580,7 +654,7 @@ function getMusic(eventOptions, trackOptions, artistStore, divchecker) {
 		if (cached !== undefined) {
 		    return Q.fcall(function(){return JSON.parse(cached);});
 		} else {
-                    var fetchfn = {'spotify': spotifyArtist, 'rdio': rdioArtist}[service];
+                    var fetchfn = {'spotify': spotifyArtist, 'rdio': rdioArtist, 'soundcloud':soundcloudArtist}[service];
                     return fetchfn(performer).then(function(result){
 			artistStore.set(artistCacheKey, JSON.stringify(result)).done();
 			return result;
@@ -698,19 +772,21 @@ function makeServer(artistStore, authStore) {
         var service = req.params.service;
         var trackKeys = JSON.parse(req.params.track_keys);
         var myKey = clientCookie(req, res);
-	authStore.get(myKey).then(function(authInfo) {
-	    if (authInfo && authInfo.access) {
-		authInfo.service = service;
-		authInfo.track_keys = trackKeys;
-		return makePlaylist(authInfo.service, authInfo.access, trackKeys).then(function(links) {
+	authStore.get(myKey).then(function(info) {
+	    if (info && info.auth && info.auth[service] && info.auth[service].token) {
+		var auth = info.auth[service];
+		console.log('info', info);
+		info.service = service;
+		info.track_keys = trackKeys;
+		return makePlaylist(info.service, auth, trackKeys).then(function(links) {
 		    redirectOnCreate(res, links);
 		}).then(function(){}, function(err) {
-		    console.log('Could not use saved access info (', authInfo.access, '):', err);
-		    return redirectToAuth(myKey, authInfo, res, authStore);
+		    console.log('Could not use saved access info (', auth, '):', err);
+		    return redirectToAuth(myKey, info, res, authStore);
 		});
 	    } else {
-		var authInfo = {'track_keys': trackKeys, 'service': service};
-		return redirectToAuth(myKey, authInfo, res, authStore);
+		var info = {'track_keys': trackKeys, 'service': service};
+		return redirectToAuth(myKey, info, res, authStore);
 	    }
 	}).done();
     });
@@ -750,12 +826,17 @@ function makeServer(artistStore, authStore) {
 		
             } else if (info.service === 'rdio') {
 		promise = rdio_get_access_token(info.oauth_token, info.oauth_secret, req.params.oauth_verifier);
+	    } else if (info.service === 'soundcloud') {
+		promise = soundcloud_get_access_token(req.params.code);
             } else {
 		res.send(400, 'Invalid service');
 		return;
 	    }
 	    promise = promise.then(function(accessdata) {
-		info.access = accessdata;
+		if (!info.auth) {
+		    info.auth = {};
+		}
+		info.auth[info.service] = accessdata;
 		return makePlaylist(info.service, accessdata, trackKeys);
 	    }).then(function(links) {
 		redirectOnCreate(res, links);
@@ -770,11 +851,41 @@ function makeServer(artistStore, authStore) {
     return server;
 }
 
+function upgrade1(authStore) {
+    var map = authStore.all();
+    var promises = [];
+    for(var key in map) {
+	var info = map[key];
+	if (info.access && info.access.token) {
+	    var token = info.access.token;
+	    var service = '';
+	    if (token.toLowerCase() === token) { // rdio tokens are lowercase
+		service = 'rdio';
+	    } else {
+		service = 'spotify';
+	    }
+	    if (! info.auth) {
+		info.auth = {};
+		info.auth[service] = info.access;
+	    }
+	    console.log(key);
+	    console.log(info);
+	    //promises.push(authStore.set(key, info));
+	}
+    }
+    Q.all(promises).then(function() { console.log('upgrade complete'); }).done();
+}
+
+var lastarg = process.argv[process.argv.length - 1];
 mysqlStore(pool, 'artists').then(function(artistStore) {
     return mysqlStore(pool, 'auth').then(function(authStore) {
-	var server = makeServer(artistStore, authStore);
-	server.listen(11810, function() {
-	    console.log('%s listening at %s', server.name, server.url);
-	});
+	if (lastarg == 'upgrade') {
+	    return upgrade1(authStore);
+	} else {
+	    var server = makeServer(artistStore, authStore);
+	    server.listen(11810, function() {
+		console.log('%s listening at %s', server.name, server.url);
+	    });
+	}
     });
 }).done();

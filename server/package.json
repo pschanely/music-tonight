@@ -17,6 +17,7 @@
     "request": "^2.34.0",
     "require-dir": "^0.1.0",
     "restify": "^2.7.0",
-    "restify-cookies": "^0.1.1"
+    "restify-cookies": "^0.1.1",
+    "soundclouder": "^0.8.1"
   }
 }
