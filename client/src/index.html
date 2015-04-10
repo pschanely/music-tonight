@@ -424,6 +424,9 @@
 	       if (hash == '#rdio') {
 		 $scope.opts.service = 'rdio';
 		 document.location.hash = '#';
+	       } else if (hash == '#soundcloud') {
+		 $scope.opts.service = 'soundcloud';
+		 document.location.hash = '#';
 	       } else {
 		 var args = parse_hash_query(hash);
 		 if (args && args.http) {

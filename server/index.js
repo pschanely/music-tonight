@@ -105,7 +105,7 @@ function mysqlStore(pool, table) {
 		return openRequests[key];
 	    },
 	    'all': function() {
-		return pool.boundQuery('SELECT k,v FROM ' + table + ' COLLATE utf8_unicode_ci').then(function(rows) {
+		return pool.boundQuery('SELECT k,v FROM ' + table).then(function(rows) {
                     var result = {};
                     rows.forEach(function(row){result[row.k] = JSON.parse(row.v);});
                     return result;
@@ -852,28 +852,31 @@ function makeServer(artistStore, authStore) {
 }
 
 function upgrade1(authStore) {
-    var map = authStore.all();
-    var promises = [];
-    for(var key in map) {
-	var info = map[key];
-	if (info.access && info.access.token) {
-	    var token = info.access.token;
-	    var service = '';
-	    if (token.toLowerCase() === token) { // rdio tokens are lowercase
-		service = 'rdio';
-	    } else {
-		service = 'spotify';
+    return authStore.all().then(function(map) {
+	console.log(map);
+	var promises = [];
+	for(var key in map) {
+	    console.log('key', key);
+	    var info = map[key];
+	    if (info.access && info.access.token) {
+		var token = info.access.token;
+		var service = '';
+		if (token.toLowerCase() === token) { // rdio tokens are lowercase
+		    service = 'rdio';
+		} else {
+		    service = 'spotify';
+		}
+		if (! info.auth) {
+		    info.auth = {};
+		    info.auth[service] = info.access;
+		}
+		console.log(key);
+		console.log(info);
+		promises.push(authStore.set(key, info));
 	    }
-	    if (! info.auth) {
-		info.auth = {};
-		info.auth[service] = info.access;
-	    }
-	    console.log(key);
-	    console.log(info);
-	    //promises.push(authStore.set(key, info));
 	}
-    }
-    Q.all(promises).then(function() { console.log('upgrade complete'); }).done();
+	return Q.all(promises).then(function() { console.log('upgrade complete'); }).done();
+    });
 }
 
 var lastarg = process.argv[process.argv.length - 1];
