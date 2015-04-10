@@ -3,5 +3,6 @@ bower_components
 *~
 mobile/platforms
 mobile/plugins
+mobile/www
 client/dist
 
