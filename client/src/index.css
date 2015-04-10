@@ -71,6 +71,7 @@ button.outlined, a.outlined {
     border-bottom-right-radius: 0.8em;
     padding: 0.1em 0.5em 0.1em 0.4em;
     background-color: #f8f8f8;
+    color: #353535;
 }
 li.ng-enter, li.ng-move {
     -webkit-animation: fadeIn 1s;
