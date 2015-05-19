@@ -20,6 +20,23 @@ var soundclouder = require("soundclouder");
 
 var os = require('os');
 
+function linear_scorer(graph) {
+    return function(value) {
+	if (value < graph[0][0]) { return graph[0][1]; }
+	for(var idx=1; idx < graph.length; idx++) {
+	    var next_x = graph[idx][0];
+	    var prev_x = graph[idx - 1][0];
+	    if (prev_x <= value && value < next_x) {
+		var prev_y = graph[idx - 1][1];
+		var next_y = graph[idx][1];
+		var progress = (value - prev_x) / (next_x - prev_x);
+		return progress * next_y + (1.0 - progress) * prev_y;
+	    }
+	}
+	return graph[graph.length - 1][1];
+    };
+}
+
 function getLocalIps() {
     var ifaces = os.networkInterfaces();
     var addrs = [];
@@ -123,6 +140,17 @@ function mysqlStore(pool, table) {
 	    'set': function(key, val) {
 		var sql = 'INSERT INTO ' + table + ' (k,v) VALUES (?,?) ON DUPLICATE KEY UPDATE v=VALUES(v)';
 		return pool.boundQuery(sql, [key, JSON.stringify(val)]);
+	    },
+	    'mset': function(bindings) {
+		var sql = '';
+		var params = [];
+		for(var key in bindings) {
+		    if (sql) { sql +=';'; }
+		    sql += 'INSERT INTO ' + table + ' (k,v) VALUES (?,?) ON DUPLICATE KEY UPDATE v=VALUES(v)';
+		    params.push(key);
+		    params.push(JSON.stringify(bindings[key]));
+		}
+		return pool.boundQuery(sql, params);
 	    }
 	};
     });
@@ -218,6 +246,15 @@ function getDiversityChecker(divblock) {
     };
 }
 
+function score_result(track) {
+    var dtstring = track.event.datetime_local;
+    var year = dtstring.substring(0, 4);
+    var month = dtstring.substring(5, 7);
+    var day = dtstring.substring(8, 10);
+    var dtscore = parseInt(year + month + day);
+    return dtscore * 10 + Math.random();
+}
+
 function score_track(track, divchecker) {
     var novel = divchecker.check(track.name) ? 0.0 : 1.0;
     var popularity = 0.0;
@@ -267,15 +304,18 @@ function soundcloud_get_access_token(code) {
 
 function make_rdio_api_fn(token, token_secret) {
     return function(args) {
-	var deferred = Q.defer();
-	rdio.api(token, token_secret, args, function(err, data, response) {
-            if (err) {
-		deferred.reject(err);
-            } else {
-		deferred.resolve(JSON.parse(data)['result']);
-            }
-	});
-	return deferred.promise;
+	function make_promise() {
+	    var deferred = Q.defer();
+	    rdio.api(token, token_secret, args, function(err, data, response) {
+		if (err) {
+		    deferred.reject(err);
+		} else {
+		    deferred.resolve(JSON.parse(data)['result']);
+		}
+	    });
+	    return deferred.promise;
+	}
+	return backoff(make_promise, 'Developer Over Qps');
     };
 }
 
@@ -322,10 +362,11 @@ function allPages(reqGenerator, resultProcessor, pageSize) {
     function onePage(pageNum) {
 	return http(reqGenerator(pageSize, pageNum)).then(function(response) {
 	    var results = resultProcessor(response);
-	    if (results.length < pageSize) {
+	    console.log('page '+pageNum+' had '+results.length+' results');
+	    if (results.length < pageSize || pageNum == 1) {
 		return results;
 	    } else {
-		return onePage(pageSize, pageNum + 1).then(function(subresults) {
+		return onePage(pageNum + 1).then(function(subresults) {
 		    results.forEach(function(r){subresults.push(r);});
 		    return subresults;
 		});
@@ -335,21 +376,19 @@ function allPages(reqGenerator, resultProcessor, pageSize) {
     return onePage(1);
 }
 
-function fetchEvents(opts, range) {
+function fetchEvents(opts) {
     var zipcode = opts.zipcode;
     var latlon = opts.latlon;
     var daysout = opts.daysout;
     var maxmiles = opts.maxmiles;
     var onlyavailable = opts.onlyavailable;
-    range = (range > maxmiles) ? maxmiles : range;
     var dt = new Date();
     var startdt = formatDate(new Date(dt.getTime() - 2 * 3600 * 1000));
     var enddt = formatDate(new Date(dt.getTime() + ((daysout - 1) * 24 - 2) * 3600 * 1000));
 
     console.log('fetchEvents input:', zipcode, opts.clientIp, latlon, startdt, enddt);
-    var promise;
 
-    var uri = 'http://api.bandsintown.com/events/search?app_id=musictonight.millstonecw.com&format=json&per_page=50';
+    var uri = 'http://api.bandsintown.com/events/search?app_id=musictonight.millstonecw.com&format=json';
     if (latlon) {
 	uri += '&location=' + latlon;
     } else {
@@ -359,20 +398,29 @@ function fetchEvents(opts, range) {
 	    uri += '&location=40.7436300,-73.9906270';
 	}
     }
-    uri += '&radius=' + range;
+    uri += '&radius=' + maxmiles;
     uri += '&date=' + startdt.substring(0, 10) + ',' + enddt.substring(0, 10);
-    console.log(uri);
-    promise = http({method:'get', uri:uri, json:true}).then(function(events) {
-	if (events.errors) {
-	    var errors = events.errors;
+
+    function reqGenerator(pageSize, pageNum) {
+	var cur = uri + '&per_page=' + pageSize + '&page=' + pageNum;
+	console.log(cur);
+	return {method:'get', json:true, uri:cur};
+    }
+    function resultProcessor(response) {
+	if (response.errors) {
+	    var errors = response.errors;
 	    if (errors[0] === 'Unknown Location') {
 		throw new Error('client error: cannot_geo_ip');
 	    } else {
-		throw new Error(events.errors);
+		throw new Error(errors);
 	    }
+	} else {
+	    return response;
 	}
+    }
+    var promise = allPages(reqGenerator, resultProcessor, 100).then(function(events) {
 	if (onlyavailable) {
-	    events = events.filter(function(e){e.ticket_status === 'available'});
+	    events = events.filter(function(e){return e.ticket_status === 'available'});
 	}
 	events.forEach(function(event) {
 	    var month = parseInt(event.datetime.substring(5, 7));
@@ -385,27 +433,16 @@ function fetchEvents(opts, range) {
 	return events;
     });
     return promise.then(function(events) {
-	var num_events = events.length;
-	var target_count = Math.min(50, Math.max(4, Math.round(600 / range)));
-	console.log('results at range ', range, ' : ', num_events, ' (target is:', target_count, ')');
-	if (range >= maxmiles || num_events >= target_count) {
-	    var performer_map = {};
-	    events = events.slice(0, 40);
-	    events.forEach(function(event) {
-		if (isRealVenue(event.venue)) {
-		    event.performers = event.performers.slice(0, 3);
-		    event.performers.forEach(function(performer) {
-			performer_map[performer.name]=event;
-		    });
-		}
-	    });
-	    return performer_map;
-	} else {
-	    var multiplier = Math.sqrt((target_count + 1) / (num_events + 1));
-	    if (multiplier < 1.5) { multiplier = 1.5; }
-	    if (multiplier > 2.0) { multiplier = 2.0; }
-	    return fetchEvents(opts, 1 + Math.ceil(range * multiplier));
-	}
+	var performer_map = {};
+	events.forEach(function(event) {
+	    if (isRealVenue(event.venue)) {
+		event.performers = event.performers.slice(0, 3);
+		event.performers.forEach(function(performer) {
+		    performer_map[performer.name]=event;
+		});
+	    }
+	});
+	return performer_map;
     });
 }
 
@@ -510,62 +547,76 @@ function spotifyArtist(performer) {
     );
 }
 
-var rdio_cps = {'tm':0, 'ct':0};
-
-function rdioArtist(performer) {
-    var api = make_rdio_api_fn(undefined, undefined);
-    function make_promise() {
-	return api({'method': 'search','query':performer,'types':'artist','extras':'-*,key,name'}).then(function(artist_result) {
-	    var hits = artist_result.results.filter(function(a){return a.name === performer;});
-	    if (hits) {
-		return hits[0];
-	    } else {
-		console.log('Artist not found on rdio ', performer, ' options ', artist_result.results);
-		return null;
-	    }
-	}).then(function(artist) {
-	    if (! artist) return null;
-	    return api(
-		{'method':'getTracksForArtist', 
-		 'artist': artist.key, 
-		 'count':NUM_TRACKS_CACHED, 
-		 'extras':'-*,key,name,playCount'
-		}
-	    ).then(function(tracks) {
-		if (!tracks) {
-		    console.log('No tracks found on rdio for ', performer);
-		    return null;
-		}
-		tracks = tracks.map(function(item) {
-		    return {name: item.name, 
-			    artist: performer,
-			    key: item.key, 
-			    playCount: item.playCount};
-		});
-		artist.tracks = tracks;
-		return artist;
+function backoff(fn, errstr) {
+    return fn()['catch'](function(err) {
+	if (JSON.stringify(err).indexOf(errstr) === -1) {
+	    console.log('err without backoff', err);
+	    return Q.reject(err);
+	} else {
+	    console.log('backoff err', err);
+	    return Q.delay(Math.round(1000 * Math.random())).then(function(){
+		return backoff(fn, errstr);
 	    });
+	}
+    });
+}
+
+function rdioArtists(performers) {
+    var api = make_rdio_api_fn(undefined, undefined);
+    var SLEEP = 120;
+    var cur_delay = -SLEEP;
+    return Q.all(performers.map(function(performer) {
+	cur_delay += SLEEP;
+	return Q.delay(cur_delay).then(function() {
+	    return api({'method':'search','query':performer,'types':'artist','extras':'-*,key,name,trackKeys'}).then(
+		function(artist_result) {
+		    var hits = artist_result.results.filter(function(a){return a.name === performer;});
+		    if (hits) {
+			return hits[0];
+		    } else {
+			console.log('Artist not found on rdio ', performer, ' options ', artist_result.results);
+			return null;
+		    }
+		}
+	    );
 	});
-    }
-    var dt_to_second = new Date().toISOString().substring(0,19);
-    if (rdio_cps.tm !== dt_to_second) {
-	rdio_cps.tm = dt_to_second;
-	rdio_cps.ct = 0;
-	return make_promise();
-    } else {
-	rdio_cps.ct += 1;
-	// aim for 5 per second(ish)
-	var delay = ((rdio_cps.ct - 1) / 4) * 1000
-	console.log('rdio throttle kick-in', delay);
-	return Q.delay(delay).then(make_promise);
-    }
+    })).then(function(artists) {
+	var track_key_to_artist = {};
+	var name_to_artist = {};
+	artists.forEach(function(artist) {
+	    if (artist) {
+		name_to_artist[artist.name] = artist;
+		artist.tracks = [];
+		artist.trackKeys.slice(0, NUM_TRACKS_CACHED).forEach(function(track_key) {
+		    track_key_to_artist[track_key] = artist;
+		});
+	    }
+	});
+	return api(
+	    {'method': 'get',
+	     'keys': Object.keys(track_key_to_artist).join(','),
+	     'extras':'-*,key,name,playCount'
+	    }
+	).then(function(resp) {
+	    for(var track_key in resp) {
+		var track = resp[track_key];
+		var artist = track_key_to_artist[track.key];
+		artist.tracks.push({
+		    name: track.name, 
+		    artist: artist.name,
+		    key: track.key, 
+		    playCount: track.playCount});
+	    }
+	    return name_to_artist;
+	});
+    });
 }
 
 function soundcloudArtist(performer) {
     var base = 'http://api.soundcloud.com';
     var uri = base + '/users?limit=1&q='+encodeURIComponent(performer) + '&client_id=' + config.SOUNDCLOUD.client_id;
     return http({uri: uri, method: 'get', json: true}).then(function(response) {
-	if (response.length === 0) return null;
+	if (!(response.length > 0)) return null;
 	var artistid = response[0].id;
 	var uri = base + '/users/' + artistid + '/tracks?limit=50&client_id=' + config.SOUNDCLOUD.client_id;
 	return http({uri: uri, method: 'get', json: true}).then(function(trackResponse) {
@@ -594,7 +645,13 @@ function makePlaylist(service, authInfo, trackKeys) {
 	return api.getUsername().then(function(username) {
 	    if (username === undefined) throw new Error('access_token not working');
 	    return api.createPlaylist(username, titlePlaylist()).then(function(playlist_id) {
-		return api.addTracksToPlaylist(username, playlist_id, trackKeys).then(function() {
+		function sendBucket() {
+		    var page = trackKeys.splice(0, 99);
+		    return api.addTracksToPlaylist(username, playlist_id, page).then(function() {
+			if (trackKeys.length > 0) return sendBucket();
+		    });
+		}
+		return sendBucket().then(function() {
 		    return {http: 'https://play.spotify.com/user/'+username+'/playlist/'+playlist_id,
 			    app: 'spotify:user:'+username+':playlist:'+playlist_id};
 		});
@@ -606,7 +663,7 @@ function makePlaylist(service, authInfo, trackKeys) {
 	var payload = {'method': 'createPlaylist', 
 		       'name': titlePlaylist(), 
 		       'description': 'A playlist of local artists playing near you, now.',
-		       'isPublished': 'false',
+		       'isPublished': 'true',
 		       'tracks': trackKeys.join(',')};
 	return api(payload).then(
 	    function(result) {
@@ -616,31 +673,61 @@ function makePlaylist(service, authInfo, trackKeys) {
 	);
     } else if (service === 'soundcloud') {
 	var title = titlePlaylist();
-	var url = 'http://api.soundcloud.com/playlists';
-	url += '?oauth_token=' + encodeURIComponent(access_token) + '&client_id=' + encodeURIComponent(config.SOUNDCLOUD.client_id);
-	url += '&playlist[sharing]=private&playlist[title]=' + encodeURIComponent(title);
-	var suffix = trackKeys.map(function(k){ return '&playlist[tracks][][id]=' + encodeURIComponent(k); }).join('');
-	url += suffix;
-	console.log('url',url);
-	return http({method:'POST', url:url, json:true}).then(function(response) {
-	    if (response.errors && response.errors.length > 0) {
+	var authbody = ('oauth_token=' + encodeURIComponent(access_token) +
+			'&client_id=' + encodeURIComponent(config.SOUNDCLOUD.client_id))
+	var formbody = (authbody + 
+			'&playlist[sharing]=public' +
+			'&playlist[title]=' +  encodeURIComponent(title));
+	var req = {
+	    method: 'POST',
+	    url: 'http://api.soundcloud.com/playlists',
+	    json: true,
+	    form: formbody
+	};
+	console.log('url', req);
+	return http(req).then(function(response) {
+	    if (! response.permalink_url) {
 		throw new Error('Unable to create playlist:' + JSON.stringify(response.errors));
 	    }
-	    console.log(response);
-            return {
-		http: response.permalink_url,
-                app: 'soundcloud:playlists:' + response.id
-	    };
+	    function sendBucket() {
+		var page = trackKeys.splice(0, 9999);
+		var body = authbody + page.map(function(k){ return '&playlist[tracks][][id]=' + encodeURIComponent(k); }).join('');
+		var url = 'http://api.soundcloud.com/playlists/' + response.id;
+		return http({method:'PUT', json:true, url: url, form: body}).then(function(resp) {
+		    if (trackKeys.length > 0) return sendBucket();
+		});
+	    }
+	    return sendBucket().then(function() {
+		return {
+		    http: response.permalink_url,
+		    app: 'soundcloud:playlists:' + response.id
+		};
+	    });
 	})
     } else {
 	throw new Error('Invalid service');
     }
 }
 
+function mapq(fn) {
+    return function(items) {
+	var map = {};
+	var delay = 0;
+	return Q.all(items.map(function(item){
+	    delay += 100;
+	    return Q.delay(delay).then(function(){return fn(item);}).then(function(val) {
+		map[item] = val;
+	    });
+	})).then( function() { 
+	    return map; 
+	});
+    };
+}
+	
 
 function getMusic(eventOptions, trackOptions, artistStore, divchecker) {
     var maxTracksPerArtist = trackOptions.maxTracksPerArtist;
-    return fetchEvents(eventOptions, 5).then(function(performer_map) {
+    return fetchEvents(eventOptions).then(function(performer_map) {
 	var service = trackOptions.service;
 	var playlistName = formatDate(new Date()).substring(0, 10) + '-music-tonight';
 	var performers = Object.keys(performer_map);
@@ -648,21 +735,36 @@ function getMusic(eventOptions, trackOptions, artistStore, divchecker) {
 	var performerCacheKeys = performers.map(function(p){ return service+':'+p; });
 	tracksPerArtist = Math.max(1, Math.min(maxTracksPerArtist, tracksPerArtist));
 	return artistStore.mget(performerCacheKeys).then(function(cacheResults) {
-	    var promises = performers.map(function(performer) {
+	    var cached = [];
+	    var uncached = [];
+	    performers.forEach(function(performer) {
 		var artistCacheKey = service + ':' + performer;
-		var cached = cacheResults[artistCacheKey];
-		if (cached !== undefined) {
-		    return Q.fcall(function(){return JSON.parse(cached);});
+		if (cacheResults[artistCacheKey] !== undefined) {
+		    cached.push(cacheResults[artistCacheKey]);
 		} else {
-                    var fetchfn = {'spotify': spotifyArtist, 'rdio': rdioArtist, 'soundcloud':soundcloudArtist}[service];
-                    return fetchfn(performer).then(function(result){
-			artistStore.set(artistCacheKey, JSON.stringify(result)).done();
-			return result;
-		    });
+		    uncached.push(performer);
 		}
 	    });
-	    return Q.all(promises).then(function(artists) {
-		var result_tracks = [];
+	    console.log(cached.length + ' cached, ' + uncached.length + ' to be fetched.');
+	    var promise;
+	    if (uncached.length === 0) {
+		promise = Q.fcall(function(){ return cached; });
+	    } else {
+		var fetchfn = {'spotify': mapq(spotifyArtist), 'rdio': rdioArtists, 'soundcloud':mapq(soundcloudArtist)}[service];
+		promise = fetchfn(uncached).then(function(results) {
+		    var result_list = [];
+		    var cacheUpdate = {};
+		    uncached.forEach(function(key) {
+			var result = results[key];
+			result_list.push(result);
+			cacheUpdate[service + ':' + key] = result;
+		    });
+		    artistStore.mset(cacheUpdate).done();
+		    return cached.concat(result_list);
+		});
+	    }
+	    return promise.then(function(artists) {
+		var all_tracks = [];
 		artists.forEach(function(artist) {
 		    if (! artist) {return;}
 		    var event = performer_map[artist.name];
@@ -671,9 +773,11 @@ function getMusic(eventOptions, trackOptions, artistStore, divchecker) {
 		    artist.tracks.slice(0, tracksPerArtist).forEach(function(track){
 			track.event = event;
 			divchecker.add(track.name);
-			result_tracks.push(track);
+			all_tracks.push(track);
 		    });
 		});
+		var result_tracks = all_tracks.sort(function(a, b) { return score_result(a) - score_result(b); });
+
 		return {name: playlistName, tracks:result_tracks};
 	    });
 	});
@@ -775,7 +879,6 @@ function makeServer(artistStore, authStore) {
 	authStore.get(myKey).then(function(info) {
 	    if (info && info.auth && info.auth[service] && info.auth[service].token) {
 		var auth = info.auth[service];
-		console.log('info', info);
 		info.service = service;
 		info.track_keys = trackKeys;
 		return makePlaylist(info.service, auth, trackKeys).then(function(links) {
@@ -880,7 +983,7 @@ function upgrade1(authStore) {
 }
 
 var lastarg = process.argv[process.argv.length - 1];
-mysqlStore(pool, 'artists').then(function(artistStore) {
+mysqlStore(pool, 'artists2').then(function(artistStore) {
     return mysqlStore(pool, 'auth').then(function(authStore) {
 	if (lastarg == 'upgrade') {
 	    return upgrade1(authStore);

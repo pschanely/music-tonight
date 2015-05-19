@@ -46,6 +46,11 @@
 		  </div>
 		  &nbsp;
 		  <div>
+		    <input ng-model="opts.onlyavailable" type="checkbox" />
+		    <span class="optionlabel">only with available tickets</span>
+		  </div>
+		  &nbsp;
+		  <div>
 		    <a href="#" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); reset_options()">reset</a>
 		    <a href="#" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); showOptions = false; save_options(); get_music()">
 		      done
@@ -180,7 +185,15 @@
 			    Creating Playlist...
 			</div>
 			<div ng-hide="is_loading" style="text-align:left" class="bouncy">
-			    <a ng-href="{{playlist_links.http}}" style="display:inline-block" class="outlined big" ng-click="open_playlist($event)">Open playlist in {{service_name()}}</a>
+			  <a href="#" ng-show="platform == 'ios'" style="display:inline-block" class="outlined big" ng-click="$event.preventDefault(); restart()">
+			    <svg xmlns="http://www.w3.org/2000/svg" version="1.1"  width="16" height="16" viewBox="0 0 128 128">
+			      <g data-width="128" data-height="128" class="iconic-lg iconic-container" display="inline" transform="rotate(180 64 64) translate(24)">
+				<path d="M78.8 63.1l-77.6-62.2c-.7-.5-1.2-.2-1.2.6v125c0 .8.5 1.1 1.2.6l77.7-62.1c.6-.6.6-1.4-.1-1.9z"></path>
+			      </g>
+			    </svg>
+			    back
+			  </a>
+			  <a ng-href="{{playlist_links.http}}" style="display:inline-block" class="outlined big" ng-click="open_playlist($event)">Open playlist in {{service_name()}}</a>
 			</div>
 		    </div>
 		</div>
@@ -190,7 +203,7 @@
 		  <div><img style="display:block; margin:auto" src="img/loading.svg" width="128" height="64" alt="loading..." /></div>
 		  <div ng-show="load_error">{{load_error}}</div>
 		</div>
-		<ul ng-show="track_data">
+		<ul ng-show="track_data && ! is_loading">
 		    <li ng-repeat="track in track_data">
 		      <a ng-href="{{get_ticket_link(track)}}" style="display:block; padding:0.2em 1em" ng-click="buy_tickets(track, $event)">
 			{{track.name}}<br/>
@@ -340,24 +353,24 @@
 	      </a>
 	    </div>
 	    <div style="padding:1em; text-align:center; font-size:80%">
-		<div>
+		<div ng-show="platform=='web'">
 		  <span>
 		    <a href="/about.html">About Music Tonight</a>
 		  </span>
 		</div>
 		<div style="padding-top:0.6em">
 		  powered by: 
-		  <a ng-show="opts.service=='spotify'" href="http://www.spotify.com"><img height="33" width="110" src="img/spotify-logo-primary-horizontal-light-background-rgb2.png" style="position:relative; top:9px"/></a>
-		  <a ng-show="opts.service=='rdio'" href="http://www.rdio.com"><img height="33" width="85" src="img/rdio-logo.png" style="position:relative; top:9px"/></a>
-		  <a ng-show="opts.service=='soundcloud'" href="http://soundcloud.com"><img height="33" width="53" src="img/soundcloud105x66.png" style="position:relative; top:9px"/></a>
-		  <a href="http://bandsintown.com"><img height="33" width="135" src="img/bandsintown135x33.png" style="position:relative; top:9px;"/></a>
+		  <img ng-show="opts.service=='spotify'" height="33" width="110" src="img/spotify-logo-primary-horizontal-light-background-rgb2.png" style="position:relative; top:9px"/>
+		  <img ng-show="opts.service=='rdio'" height="33" width="85" src="img/rdio-logo.png" style="position:relative; top:9px"/>
+		  <img ng-show="opts.service=='soundcloud'" height="33" width="53" src="img/soundcloud105x66.png" style="position:relative; top:9px"/>
+		  <img height="33" width="135" src="img/bandsintown135x33.png" style="position:relative; top:9px;"/>
 		</div>
 	    </div>
 	</div>
 	<script>
 	 function noop() {}
 	 (function() {
-	   var OPTS_DEFAULTS = {daysout:1, maxmiles:125, loctext:'', maxartisttracks:2, service:'spotify'};
+	   var OPTS_DEFAULTS = {daysout:1, maxmiles:5, loctext:'', maxartisttracks:2, onlyavailable:false, service:'spotify'};
 	   var client_id = 'SPOTIFY_CLIENT_ID';
 	   
 	   var g_tracks = [];
@@ -409,8 +422,14 @@
 	     function($scope, $http, $q, $timeout) {
 	       $scope.lang = navigator.languages ? navigator.languages[0] : (navigator.language || navigator.userLanguage);
 	       $scope.is_app = is_app;
+	       $scope.platform = platform;
 	       $scope.just_authed = function() { return $scope.playlist_links; }
-	       $scope.opts = (localStorage.getItem('opts')) ? JSON.parse(localStorage.getItem('opts')) : {};
+	       var opts = localStorage.getItem('opts');
+	       $scope.opts = (opts) ? JSON.parse(opts) : {};
+	       // reset old users to 5 miles and adapt from there
+	       if (opts && typeof $scope.opts.is_returning === 'undefined' && $scope.opts.maxmiles === 105) {
+		 $scope.opts.maxmiles = 5;
+	       }
                $scope.service_name = function(svc) {
 		   if (svc === undefined) { svc = $scope.opts.service; }
 		   return {soundcloud:'SoundCloud', rdio:'Rdio', spotify:'Spotify'}[svc];
@@ -460,7 +479,7 @@
 	       $scope.maps_is_ready = function() {
 		 load_google_maps();  // just in case
 
-		 if (typeof google !== 'undefined') {
+		 if (typeof google !== 'undefined' && typeof google.maps.places !== 'undefined') {
 		   if (! google_maps_has_loaded) {
 		     google_maps_has_loaded = true;
 		     var cityAutocomplete = new google.maps.places.Autocomplete(
@@ -474,7 +493,7 @@
 			 $scope.opts.loctext = '';
 		       } else if (place) {
 			 var loc = place.geometry.location;
-			 $scope.opts.latlon = loc.k + ',' + loc.D;
+			 $scope.opts.latlon = loc.lat() + ',' + loc.lng();
 			 $scope.opts.loctext = loctext;
 		       }
 		     };
@@ -485,11 +504,10 @@
 		   return false;
 		 }
 	       }
-				
+	       
 	       $scope.get_music = function(coords) {
 		 load_google_maps();
 		 $scope.is_loading = true;
-		 $scope.track_data = [];
 		 ga('send', 'event', 'loading_playlist');
 		 var uri = get_playlist_uri;
 		 uri += '?daysout=' + $scope.opts.daysout;
@@ -498,6 +516,7 @@
 		 if ($scope.lang != 'en-US') {
 		   maxmiles = Math.round(maxmiles * 0.621371);
 		 }
+		 if (maxmiles > 150) { maxmiles = 150; }
 		 uri += '&maxmiles=' + maxmiles;
 		 if ($scope.opts.latlon) {
 		   uri += '&latlon=' + $scope.opts.latlon;
@@ -505,10 +524,25 @@
 		   uri += '&latlon=' + coords.latitude + ',' + coords.longitude;
 		 }
 		 uri += '&maxartisttracks=' + $scope.opts.maxartisttracks;
+		 uri += '&onlyavailable=' + $scope.opts.onlyavailable;
 		 return $http.get(uri).then(
 		   function(response) {
+		     var tracks = response.data.tracks;
+		     if (! $scope.opts.is_returning) {
+		       // first time you use us, we expand your settings until you get decent results
+		       if (tracks.length < 10) {
+			 if ($scope.opts.maxmiles < 150) {
+			   $scope.opts.maxmiles = Math.min($scope.opts.maxmiles * 2, 150);
+			   return $scope.get_music(coords);
+			 } else if ($scope.opts.daysout < 7) {
+			   $scope.opts.daysout = parseInt($scope.opts.daysout) + 2;
+			   return $scope.get_music(coords);
+			 }
+		       }
+		       $scope.opts.is_returning = true;
+		     }
 		     g_name = response.data.name;
-		     $scope.track_data = response.data.tracks;
+		     $scope.track_data = tracks;
 		     $scope.is_loading = false;
 		     $scope.load_error = null;
 		   },
@@ -623,6 +657,13 @@
 		 localStorage.setItem('opts', JSON.stringify($scope.opts));
 	       }
 
+	       $scope.restart = function() {
+		 $scope.playlist_links = null;
+		 document.location.hash = '#';
+		 $scope.is_loading = true;
+		 $scope.get_music();
+	       }
+
 	       $scope.load_initial = function() {
 		 $scope.is_loading = true;
 		 navigator.geolocation.getCurrentPosition(
@@ -634,15 +675,17 @@
 		   });
 	       };
 	       
-	       document.addEventListener('backbutton', function() {
-		 if ($scope.playlist_links) {
-		   $scope.playlist_links = null;
-		   $scope.load_initial();
-		   $scope.$apply();
-		 } else {
-		   navigator.app.exitApp();
-		 }
-	       }, false);
+	       if (is_app) {
+		 document.addEventListener('backbutton', function() {
+		   if ($scope.playlist_links) {
+		     $scope.playlist_links = null;
+		     $scope.load_initial();
+		     $scope.$apply();
+		   } else {
+		     navigator.app.exitApp();
+		   }
+		 }, false);
+	       }
 
 	       if (! $scope.just_authed()) {
 		 if (is_app) {

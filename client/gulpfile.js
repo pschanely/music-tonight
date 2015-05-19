@@ -25,9 +25,12 @@ var config_patterns = [
 ];
 
 function buildto(dir, isweb) {
-    var html = gulp.src('./src/*.html');
+    var html;
     if (isweb) {
+	html = gulp.src('./src/*.html');
         html = html.pipe(inlinesource({compress:true}));
+    } else {
+	html = gulp.src(['./src/*.html', './src/*.css']);
     }
     html.pipe(frep(config_patterns))
 	.pipe(gulp.dest(dir));
