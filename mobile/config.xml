@@ -3,7 +3,7 @@
     xmlns="http://www.w3.org/ns/widgets" 
     xmlns:cdv="http://cordova.apache.org/ns/1.0"
     id="com.millstonecw.musictonight" 
-    version="1.0.8"
+    version="1.0.9"
     >
 
   <!--

@@ -518,7 +518,7 @@
 		 }
 		 if (maxmiles > 150) { maxmiles = 150; }
 		 uri += '&maxmiles=' + maxmiles;
-		 if ($scope.opts.latlon) {
+		 if ($scope.opts.latlon && $scope.opts.latlon !== 'undefined,undefined') {
 		   uri += '&latlon=' + $scope.opts.latlon;
 		 } else if (coords) {
 		   uri += '&latlon=' + coords.latitude + ',' + coords.longitude;
