@@ -76,7 +76,7 @@ var callback_url = config.HOST_PREFIX + '/api/music_svc_callback';
 config.RDIO.callback_url = callback_url;
 config.SPOTIFY.callback_url = callback_url;
 
-var rdio = rdiolib(config.RDIO);
+var Rdio = rdiolib({'rdio': config.RDIO});
 soundclouder.init(config.SOUNDCLOUD.client_id, config.SOUNDCLOUD.client_secret, callback_url);
 
 var pool = mysql.createPool(config.MYSQL);
@@ -272,19 +272,22 @@ function formatDate(dt) {
     return dt.toISOString().substring(0, 19);
 }
 
-function rdio_get_access_token(oauth_token, oauth_secret, oauth_verifier) {
+function rdio_get_access_token(code, callback_url) {
     var deferred = Q.defer();
+    var rdio = new Rdio();
     rdio.getAccessToken(
-	oauth_token, oauth_secret, oauth_verifier,
-	function(error, access_token, access_token_secret, results) {
+	{code: code, redirect: callback_url},
+	function(error) {
 	    if (error) {
 		console.log('could not get access_token');
 		deferred.reject(error);
 	    } else {
-		console.log('access_token ok', access_token, access_token_secret);
-		deferred.resolve({'token': access_token, 'secret': access_token_secret});
+		console.log('rdio access_token ok', rdio.getTokens());
+		var tokens = rdio.getTokens();
+		deferred.resolve({'token':tokens.accessToken, 'refresh':tokens.refreshToken});
 	    }
-	});
+	}
+    );
     return deferred.promise;
 }
 
@@ -302,21 +305,42 @@ function soundcloud_get_access_token(code) {
     return deferred.promise;
 }
 
-function make_rdio_api_fn(token, token_secret) {
-    return function(args) {
+function make_rdio_api_fn(access_token, refresh_token) {
+    var deferred = Q.defer();
+    var rdio;
+    if (access_token !== undefined) {
+	rdio = new Rdio({accessToken:access_token, refreshToken:refresh_token});
+    } else {
+	rdio = new Rdio();
+    }
+    var api = function(args) {
 	function make_promise() {
 	    var deferred = Q.defer();
-	    rdio.api(token, token_secret, args, function(err, data, response) {
+	    var authType = (args.method === 'search' || args.method == 'get') ? false : 'protected';
+	    rdio.request(args, authType, function(err, data) {
 		if (err) {
 		    deferred.reject(err);
 		} else {
-		    deferred.resolve(JSON.parse(data)['result']);
+		    deferred.resolve(data['result']);
 		}
 	    });
 	    return deferred.promise;
 	}
 	return backoff(make_promise, 'Developer Over Qps');
     };
+    if (access_token !== undefined) {
+	deferred.resolve(api);
+    } else {
+	rdio.getClientToken(function(err) {
+            if (err) {
+		console.log('failed to get unauthed client token for rdio:'+err);
+		deferred.reject(error);
+            } else {
+		deferred.resolve(api);
+	    }
+	});
+    }
+    return deferred.promise;
 }
 
 function isRealVenue(venue) {
@@ -468,21 +492,12 @@ function redirectToAuth(myKey, info, res, authStore) {
 	    res.send(302);
 	}).done();
     } else if (service === 'rdio') {
-        rdio.getRequestToken(function(error, oauth_token, oauth_token_secret, results){
-            if (! error) {
-                info['oauth_secret'] = oauth_token_secret;
-                info['oauth_token'] = oauth_token;
-		return authStore.set(myKey, info).then(function(){
-		    var login = results['login_url'] + '?oauth_token=' + oauth_token + '&state='+myKey;
-		    console.log('rdio auth redirect', new Date().getTime());
-		    res.header('Location', login);
-		    res.send(302);
-		}).done();
-            } else {
-                console.log('error requesting login token from rdio: ', error);
-                res.send(500);
-            }
-        });
+	var rdio = new Rdio();
+	var uri = 'https://www.rdio.com/oauth2/authorize?response_type=code&client_id=' + config.RDIO.clientId + '&redirect_uri=' + config.RDIO.callback_url;
+	return authStore.set(myKey, info).then(function(){
+	    res.header('Location', uri);
+	    res.send(302);
+	});
     } else if (service === 'soundcloud') {
 	var uri = 'https://soundcloud.com/connect?client_id=' + config.SOUNDCLOUD.client_id +
             '&state=' + myKey + '&response_type=code&redirect_uri=' + encodeURIComponent(callback_url);
@@ -562,52 +577,53 @@ function backoff(fn, errstr) {
 }
 
 function rdioArtists(performers) {
-    var api = make_rdio_api_fn(undefined, undefined);
-    var SLEEP = 120;
-    var cur_delay = -SLEEP;
-    return Q.all(performers.map(function(performer) {
-	cur_delay += SLEEP;
-	return Q.delay(cur_delay).then(function() {
-	    return api({'method':'search','query':performer,'types':'artist','extras':'-*,key,name,trackKeys'}).then(
-		function(artist_result) {
-		    var hits = artist_result.results.filter(function(a){return a.name === performer;});
-		    if (hits) {
-			return hits[0];
-		    } else {
-			console.log('Artist not found on rdio ', performer, ' options ', artist_result.results);
-			return null;
+    return make_rdio_api_fn(undefined, undefined).then(function(api) {
+	var SLEEP = 50;
+	var cur_delay = -SLEEP;
+	return Q.all(performers.map(function(performer) {
+	    cur_delay += SLEEP;
+	    return Q.delay(cur_delay).then(function() {
+		return api({'method':'search','query':performer,'types':'artist','extras':'-*,key,name,trackKeys'}).then(
+		    function(artist_result) {
+			var hits = artist_result.results.filter(function(a){return a.name === performer;});
+			if (hits) {
+			    return hits[0];
+			} else {
+			    console.log('Artist not found on rdio ', performer, ' options ', artist_result.results);
+			    return null;
+			}
 		    }
+		);
+	    });
+	})).then(function(artists) {
+	    var track_key_to_artist = {};
+	    var name_to_artist = {};
+	    artists.forEach(function(artist) {
+		if (artist) {
+		    name_to_artist[artist.name] = artist;
+		    artist.tracks = [];
+		    artist.trackKeys.slice(0, NUM_TRACKS_CACHED).forEach(function(track_key) {
+			track_key_to_artist[track_key] = artist;
+		    });
 		}
-	    );
-	});
-    })).then(function(artists) {
-	var track_key_to_artist = {};
-	var name_to_artist = {};
-	artists.forEach(function(artist) {
-	    if (artist) {
-		name_to_artist[artist.name] = artist;
-		artist.tracks = [];
-		artist.trackKeys.slice(0, NUM_TRACKS_CACHED).forEach(function(track_key) {
-		    track_key_to_artist[track_key] = artist;
-		});
-	    }
-	});
-	return api(
-	    {'method': 'get',
-	     'keys': Object.keys(track_key_to_artist).join(','),
-	     'extras':'-*,key,name,playCount'
-	    }
-	).then(function(resp) {
-	    for(var track_key in resp) {
-		var track = resp[track_key];
-		var artist = track_key_to_artist[track.key];
-		artist.tracks.push({
-		    name: track.name, 
-		    artist: artist.name,
-		    key: track.key, 
-		    playCount: track.playCount});
-	    }
-	    return name_to_artist;
+	    });
+	    return api(
+		{'method': 'get',
+		 'keys': Object.keys(track_key_to_artist).join(','),
+		 'extras':'-*,key,name,playCount'
+		}
+	    ).then(function(resp) {
+		for(var track_key in resp) {
+		    var track = resp[track_key];
+		    var artist = track_key_to_artist[track.key];
+		    artist.tracks.push({
+			name: track.name, 
+			artist: artist.name,
+			key: track.key, 
+			playCount: track.playCount});
+		}
+		return name_to_artist;
+	    });
 	});
     });
 }
@@ -658,19 +674,19 @@ function makePlaylist(service, authInfo, trackKeys) {
 	    });
 	});
     } else if (service == 'rdio') {
-	var access_token_secret = authInfo.secret;
-        var api = make_rdio_api_fn(access_token, access_token_secret);
-	var payload = {'method': 'createPlaylist', 
-		       'name': titlePlaylist(), 
-		       'description': 'A playlist of local artists playing near you, now.',
-		       'isPublished': 'true',
-		       'tracks': trackKeys.join(',')};
-	return api(payload).then(
-	    function(result) {
-		return {http: 'http://www.rdio.com' + result.url,
-			app: 'rdio://www.rdio.com' + result.url};
-	    }
-	);
+        return make_rdio_api_fn(access_token, authInfo.refresh).then(function(api) {
+	    var payload = {'method': 'createPlaylist', 
+			   'name': titlePlaylist(), 
+			   'description': 'A playlist of local artists playing near you, now.',
+			   'isPublished': 'true',
+			   'tracks': trackKeys.join(',')};
+	    return api(payload).then(
+		function(result) {
+		    return {http: 'http://www.rdio.com' + result.url,
+			    app: 'rdio://www.rdio.com' + result.url};
+		}
+	    );
+	});
     } else if (service === 'soundcloud') {
 	var title = titlePlaylist();
 	var authbody = ('oauth_token=' + encodeURIComponent(access_token) +
@@ -928,7 +944,7 @@ function makeServer(artistStore, authStore) {
 		
 		
             } else if (info.service === 'rdio') {
-		promise = rdio_get_access_token(info.oauth_token, info.oauth_secret, req.params.oauth_verifier);
+		promise = rdio_get_access_token(req.query.code, config.RDIO.callback_url);
 	    } else if (info.service === 'soundcloud') {
 		promise = soundcloud_get_access_token(req.params.code);
             } else {

@@ -62,14 +62,14 @@ button.outlined, a.outlined {
     display: inline-block;
     position: absolute;
     margin-top: -1.8em;
-    margin-left: -1.0em;
+    margin-left: -1.3em;
     font-style: italic;
-    font-size: 90%;
+    font-size: 83%;
     border: solid 1px #e2e2e2;
     border-top-left-radius: 0.8em;
     border-top-right-radius: 0.8em;
     border-bottom-right-radius: 0.8em;
-    padding: 0.1em 0.5em 0.1em 0.4em;
+    padding: 0.1em 0.4em 0.1em 0.3em;
     background-color: #f8f8f8;
     color: #353535;
 }
