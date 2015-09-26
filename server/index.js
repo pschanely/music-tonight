@@ -527,6 +527,10 @@ function spotifyArtist(performer) {
     var uri = config.SPOTIFY.artist_search_prefix + 'limit=' + NUM_TRACKS_CACHED + '&q='+encodeURIComponent('"'+performer+'"');
     return http({uri:uri, method:'get', json:true}).then(
 	function(response) {
+            if (!response.artists) {
+		console.log('response has no artists?: ', uri, response);
+		return null;
+            }
 	    var artists = response.artists.items;
 	    if (artists.length == 0) {
 		console.log('no artists found for: '+performer);
